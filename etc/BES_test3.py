@@ -1,39 +1,68 @@
 from langgraph.graph import StateGraph, END
 import chromadb
-from langchain.llms.base import LLM
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain.retrievers.self_query.base import SelfQueryRetriever
-from langchain.chains.query_constructor.base import AttributeInfo
-from langchain.prompts import PromptTemplate
-from langchain.llms.base import LLM
-from langchain.callbacks.manager import CallbackManagerForLLMRun
+from langchain_core.language_models.llms import LLM
+from langchain_core.callbacks.manager import CallbackManagerForLLMRun
+
+# 6. typing 및 pathlib (변경 없음)
 from typing import List, Dict, Any, Optional, Tuple, TypedDict, Annotated
+from pathlib import Path
 import json
 import requests
 import warnings
 import datetime
 import os
 import re
-import operator
 import chainlit as cl
 
 # FutureWarning 무시
 warnings.filterwarnings("ignore", category=FutureWarning)
 
+class GraphState(TypedDict, total=False):
+    original_query: str                     # 사용자의 최초 질문
+    test_case_info: List[Dict[str, Any]]    # 테스트케이스 RAG에서 찾은 정보
+
+    # 리소스 탐색 결과
+    resource_plan_text: str
+    resource_plan: Dict[str, Any]
+
+    # Phase 2: 기본 구조 생성 결과
+    base_structure: str                     # 핵심 3파일 기반 기본 클래스 구조
+    core_files_loaded: bool                 # 핵심 파일 로드 완료 여부
+
+    # Phase 3: 카테고리별 상세 코드
+    category_codes: Dict[str, Any]          # 카테고리별 상세 코드 딕셔너리
+
+    # Phase 4: 통합 및 검증 결과
+    final_code: str                         # 최종 통합된 코드
+    coverage: int                           # 테스트케이스 커버리지 (%)
+    validation_result: Dict[str, Any]       # 검증 결과 상세
+    needs_refinement: bool                  # 재생성 필요 여부
+
+    # 코드 생성 결과 (최종)
+    generated_plan: str
+    generated_code: str
+    artifact_info: Dict[str, str]
+    file_path: str
+
+    # 오류
+    error: str
+
+
 class LMStudioLLM(LLM):
     """LM Studio와 연동하는 LangChain 호환 LLM 클래스"""
     
     base_url: str = "http://127.0.0.1:1234/v1"
-    model_name: str = "qwen/qwen3-coder-30b"
+    model_name: str = "qwen/qwen3-8b"
     temperature: float = 0.1
-    max_tokens: int = 70000  # 자동화 코드 생성을 위해 토큰 수 증가
+    max_tokens: int = 8192  # 자동화 코드 생성을 위해 토큰 수 증가
     
     def __init__(self, 
                  base_url: str = "http://127.0.0.1:1234/v1",
-                 model_name: str = "qwen/qwen3-coder-30b",
+                 model_name: str = "qwen/qwen3-8b",
                  temperature: float = 0.1,
-                 max_tokens: int = 70000,
+                 max_tokens: int = 8192,
                  **kwargs):
         super().__init__(**kwargs)
         self.base_url = base_url.rstrip('/')
@@ -88,7 +117,9 @@ class LMStudioLLM(LLM):
                 result = response.json()
                 return result["choices"][0]["message"]["content"]
             else:
-                return f"Error: LM Studio 응답 오류 (status: {response.status_code})"
+                error_detail = response.text[:500]  # 에러 상세 정보
+                print(f"❌ LM Studio 400 에러 상세:\n{error_detail}")
+                return f"Error: LM Studio 응답 오류 (status: {response.status_code})\n상세: {error_detail}"
 
         except Exception as e:
             return f"Error: LM Studio 통신 오류 - {str(e)}"
@@ -118,7 +149,9 @@ class LMStudioLLM(LLM):
                 result = response.json()
                 return result["choices"][0]["message"]["content"]
             else:
-                return f"Error: LM Studio 응답 오류 (status: {response.status_code})"
+                error_detail = response.text[:500]
+                print(f"❌ LM Studio 400 에러 상세:\n{error_detail}")
+                return f"Error: LM Studio 응답 오류 (status: {response.status_code})\n상세: {error_detail}"
 
         except Exception as e:
             return f"Error: LM Studio 통신 오류 - {str(e)}"
@@ -128,28 +161,17 @@ class RAG_Pipeline :
     Vector DB, Embedding Model, LM Studio를 연결하여 RAG를 수행하는 클래스.
     """
 
-    # ✨ 클래스 변수: 프로젝트 학습 결과 캐시
-    cached_project_knowledge = None
-    learn_summary_info_path = "/home/bes/BES_QE_RAG/learn_summary_info.json"
-    learn_all_info_path = "/home/bes/BES_QE_RAG/learn_all_info.json"
-
     def __init__(self,
-                testcase_db_path="/home/bes/BES_QE_RAG/testcase_rag/testcase_vectordb",           # 테스트케이스 DB 폴더
-                automation_db_path="/home/bes/BES_QE_RAG/automation_rag/automation_vectordb",       # 자동화 코드 DB 폴더
-                testcase_collection_name="testcase_vectordb",        # 테스트케이스 컬렉션명
-                automation_collection_name="test_automation_functions",     # 자동화 코드 컬렉션명
+                testcase_db_path="/Users/admin/Documents/2025_project/QE_RAG_COMPANY/QE_RAG_2025/chroma_db",           # 테스트케이스 DB 폴더
+                testcase_collection_name="jira_test_cases",        # 테스트케이스 컬렉션명
                 testcase_embedding_model="intfloat/multilingual-e5-large",        # 테스트케이스용 임베딩 모델
-                automation_embedding_model="BAAI/bge-m3", # 자동화 코드용 임베딩 모델
                 lm_studio_url: str = "http://127.0.0.1:1234/v1",
-                lm_studio_model: str = "qwen/qwen3-coder-30b"
+                lm_studio_model: str = "qwen/qwen3-8b"
                 ):
         
         self.testcase_db_path = testcase_db_path
-        self.automation_db_path = automation_db_path
         self.testcase_collection_name = testcase_collection_name
-        self.automation_collection_name = automation_collection_name
         self.testcase_embedding_model = testcase_embedding_model
-        self.automation_embedding_model = automation_embedding_model
         self.lm_studio_url = lm_studio_url
         self.lm_studio_model = lm_studio_model
         
@@ -157,7 +179,7 @@ class RAG_Pipeline :
             base_url=lm_studio_url,
             model_name=lm_studio_model,
             temperature=0.1,
-            max_tokens=70000  # 자동화 코드 생성을 위해 토큰 수 증가
+            max_tokens=8192  # 자동화 코드 생성을 위해 토큰 수 증가
         )
     
         # 폴더 존재 확인
@@ -165,7 +187,7 @@ class RAG_Pipeline :
         
         # 테스트케이스용 임베딩 모델 설정 (GPU 사용)
         print(f"🔧 테스트케이스용 임베딩 모델 로딩: {testcase_embedding_model}")
-        testcase_model_kwargs = {'device': 'cuda', 'trust_remote_code': True}
+        testcase_model_kwargs = {'device': 'cpu', 'trust_remote_code': True}
         testcase_encode_kwargs = {'normalize_embeddings': True, 'batch_size': 4}
         
         self.testcase_embeddings = HuggingFaceEmbeddings(
@@ -175,18 +197,6 @@ class RAG_Pipeline :
         )
         print(f"✅ 테스트케이스 임베딩 모델 로딩 완료")
         
-        # 자동화 코드용 임베딩 모델 설정 (GPU 사용)
-        print(f"🔧 자동화 코드용 임베딩 모델 로딩: {automation_embedding_model}")
-        automation_model_kwargs = {'device': 'cuda', 'trust_remote_code': True}
-        automation_encode_kwargs = {'normalize_embeddings': True, 'batch_size': 4}
-        
-        self.automation_embeddings = HuggingFaceEmbeddings(
-            model_name=automation_embedding_model,
-            model_kwargs=automation_model_kwargs,
-            encode_kwargs=automation_encode_kwargs
-        )
-        print(f"✅ 자동화 코드 임베딩 모델 로딩 완료")
-        
         # 2개의 벡터 저장소 연결 (각각 다른 폴더와 다른 임베딩 모델)
         self.testcase_vectorstore = self._connect_to_chroma(
             self.testcase_db_path, 
@@ -195,15 +205,12 @@ class RAG_Pipeline :
             "테스트케이스",
             testcase_embedding_model
         )
-        self.automation_vectorstore = self._connect_to_chroma(
-            self.automation_db_path, 
-            self.automation_collection_name, 
-            self.automation_embeddings,
-            "자동화 코드",
-            automation_embedding_model
-        )
-        
-    
+
+        # ✨ NEW: gsdk_rag_context 로딩
+        print("\n📚 gsdk_rag_context 시스템 로딩 중...")
+        self._load_gsdk_context()
+
+
     def _check_db_directories(self):
         """DB 디렉터리 존재 확인"""
         print("📁 ChromaDB 디렉터리 확인 중...")
@@ -214,11 +221,6 @@ class RAG_Pipeline :
         else:
             print(f"✅ 테스트케이스 DB 디렉터리 확인: {self.testcase_db_path}")
         
-        if not os.path.exists(self.automation_db_path):
-            print(f"⚠️ 자동화 코드 DB 디렉터리가 없습니다: {self.automation_db_path}")
-            print(f"   디렉터리를 생성하거나 올바른 경로를 지정해주세요.")
-        else:
-            print(f"✅ 자동화 코드 DB 디렉터리 확인: {self.automation_db_path}")
     
     def _connect_to_chroma(self, persist_directory: str, collection_name: str, 
                           embedding_function, db_type: str, embedding_model_name: str) -> Chroma:
@@ -244,7 +246,387 @@ class RAG_Pipeline :
         except Exception as e:
             print(f"❌ ChromaDB '{persist_directory}' 연결 실패: {e}")
             raise
-    
+
+
+    def _load_gsdk_context(self):
+        """
+        gsdk_rag_context 시스템 로딩
+        - README.md: 자율적 탐색 프로세스 가이드
+        - 3개 가이드 문서: WORKFLOW, REFERENCE, TEST_DATA
+        - 3개 리소스 JSON: category_map, manager_api_index, event_codes
+        """
+        try:
+            # 프로젝트 루트에서 gsdk_rag_context 폴더 찾기
+            current_dir = Path(__file__).parent
+            project_root = current_dir.parent
+            gsdk_context_dir = project_root / "gsdk_rag_context"
+
+            if not gsdk_context_dir.exists():
+                print(f"⚠️ gsdk_rag_context 폴더를 찾을 수 없습니다: {gsdk_context_dir}")
+                print(f"   기본 프롬프트를 사용합니다.")
+                self.guides = {}
+                self.resources = {}
+                return
+
+            # 가이드 문서 로드
+            self.guides = {
+                'readme': self._read_file(gsdk_context_dir / "README.md"),
+                'workflow': self._read_file(gsdk_context_dir / "01_WORKFLOW_GUIDE.md"),
+                'reference': self._read_file(gsdk_context_dir / "02_REFERENCE_GUIDE.md"),
+                'test_data': self._read_file(gsdk_context_dir / "03_TEST_DATA_GUIDE.md"),
+            }
+
+            # 리소스 JSON 로드
+            resources_dir = gsdk_context_dir / "resources"
+            self.resources = {
+                'category_map': self._read_json(resources_dir / "category_map.json"),
+                'manager_api': self._read_json(resources_dir / "manager_api_index.json"),
+                'event_codes': self._read_json(resources_dir / "event_codes.json"),
+            }
+
+            # 로딩 성공 메시지
+            print(f"✅ gsdk_rag_context 로딩 완료")
+            print(f"   📖 가이드 문서: {len(self.guides)}개")
+            print(f"   📦 리소스 파일: {len(self.resources)}개")
+            print(f"   🏷️  카테고리: {len(self.resources.get('category_map', {}).get('categories', []))}개")
+
+        except Exception as e:
+            print(f"⚠️ gsdk_rag_context 로딩 중 오류: {e}")
+            print(f"   기본 프롬프트를 사용합니다.")
+            self.guides = {}
+            self.resources = {}
+
+
+    def _read_file(self, file_path: Path) -> str:
+        """파일 읽기 헬퍼"""
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            print(f"   ✓ {file_path.name} 로드 완료")
+            return content
+        except Exception as e:
+            print(f"   ✗ {file_path.name} 로드 실패: {e}")
+            return ""
+
+
+    def _read_json(self, file_path: Path) -> dict:
+        """JSON 파일 읽기 헬퍼"""
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            print(f"   ✓ {file_path.name} 로드 완료")
+            return data
+        except Exception as e:
+            print(f"   ✗ {file_path.name} 로드 실패: {e}")
+            return {}
+
+
+    def _extract_keywords(self, text: str) -> List[str]:
+        """
+        텍스트에서 키워드 추출
+        - 영문 키워드 (소문자)
+        - 한글 키워드 (원본)
+        """
+        # 영문 키워드 추출 (알파벳만)
+        english_keywords = re.findall(r'\b[a-zA-Z]+\b', text.lower())
+
+        # 한글 키워드 추출 (한글만)
+        korean_keywords = re.findall(r'[가-힣]+', text)
+
+        # 중복 제거 및 결합
+        all_keywords = list(set(english_keywords + korean_keywords))
+
+        return all_keywords
+
+
+    def _extract_relevant_context(self, test_case_content: str) -> Dict:
+        """
+        테스트케이스에서 관련 컨텍스트 자동 추출
+        README.md의 Phase 1-2 자율적 탐색 프로세스 구현
+
+        Returns:
+            {
+                'keywords': [...],
+                'categories': [...],
+                'apis': {...},
+                'events': [...]
+            }
+        """
+        if not self.resources.get('category_map'):
+            return {'keywords': [], 'categories': [], 'apis': {}, 'events': []}
+
+        # Phase 1: 키워드 추출
+        keywords = self._extract_keywords(test_case_content)
+        print(f"\n🔍 Phase 1: 키워드 추출")
+        print(f"   추출된 키워드: {', '.join(keywords[:10])}{'...' if len(keywords) > 10 else ''}")
+
+        # Phase 1: 카테고리 매칭
+        relevant_categories = []
+        category_map = self.resources['category_map']
+
+        for cat in category_map.get('categories', []):
+            cat_keywords = [kw.lower() for kw in cat.get('keywords', [])]
+            # 키워드가 하나라도 매칭되면 해당 카테고리 추가
+            if any(kw.lower() in keywords for kw in cat.get('keywords', [])):
+                relevant_categories.append(cat)
+
+        print(f"\n📦 Phase 2: 카테고리 매칭")
+        print(f"   매칭된 카테고리 ({len(relevant_categories)}개): {', '.join([c['name'] for c in relevant_categories[:10]])}")
+
+        # Phase 2: Manager API 필터링
+        relevant_apis = self._filter_apis_by_categories(relevant_categories)
+
+        print(f"\n🔧 Phase 2: Manager API 필터링")
+        print(f"   관련 API 그룹: {len(relevant_apis)}개")
+
+        # Phase 2: Event 코드 필터링
+        relevant_events = self._filter_events_by_keywords(keywords)
+
+        print(f"\n📊 Phase 2: Event 코드 필터링")
+        print(f"   관련 이벤트: {len(relevant_events)}개")
+
+        return {
+            'keywords': keywords,
+            'categories': relevant_categories,
+            'apis': relevant_apis,
+            'events': relevant_events
+        }
+
+
+    def _filter_apis_by_categories(self, categories: List[Dict]) -> Dict:
+        """카테고리에 해당하는 Manager API 필터링"""
+        if not self.resources.get('manager_api'):
+            return {}
+
+        relevant_apis = {}
+        category_names = [cat['name'] for cat in categories]
+
+        for group_name, group_data in self.resources['manager_api'].items():
+            methods = group_data.get('methods', [])
+            filtered_methods = []
+
+            for method in methods:
+                method_categories = method.get('categories', [])
+                # 카테고리가 하나라도 매칭되면 추가
+                if any(cat in category_names for cat in method_categories):
+                    filtered_methods.append(method)
+
+            if filtered_methods:
+                relevant_apis[group_name] = {
+                    'description': group_data.get('description', ''),
+                    'methods': filtered_methods
+                }
+
+        return relevant_apis
+
+
+    def _filter_events_by_keywords(self, keywords: List[str]) -> List[Dict]:
+        """키워드에 해당하는 Event 코드 필터링"""
+        if not self.resources.get('event_codes'):
+            return []
+
+        relevant_events = []
+        event_codes = self.resources['event_codes']
+
+        # commonly_monitored_events에서 필터링
+        for event in event_codes.get('commonly_monitored_events', []):
+            event_keywords = event.get('event', '').lower().split('_')
+            # 키워드가 하나라도 이벤트 이름에 포함되면 추가
+            if any(kw in event_keywords for kw in keywords if len(kw) > 2):
+                relevant_events.append(event)
+
+        return relevant_events
+
+    # ------------------------------------------------------------------
+    # 리소스 도우미 (LLM이 선택한 항목을 실데이터로 변환)
+    # ------------------------------------------------------------------
+
+    def _get_category_by_name(self, name: str) -> Optional[Dict[str, Any]]:
+        if not name or not self.resources.get('category_map'):
+            return None
+
+        target = name.strip().lower()
+        for cat in self.resources['category_map'].get('categories', []):
+            if cat.get('name', '').lower() == target:
+                return cat
+
+        # 부분 일치도 허용
+        for cat in self.resources['category_map'].get('categories', []):
+            if target in cat.get('name', '').lower():
+                return cat
+        return None
+
+    def _find_manager_method(self, method_name: str) -> Optional[Dict[str, Any]]:
+        if not method_name or not self.resources.get('manager_api'):
+            return None
+
+        target = method_name.strip()
+        for group_name, group in self.resources['manager_api'].items():
+            for method in group.get('methods', []):
+                if method.get('name') == target:
+                    return {"group": group_name, "info": method}
+
+        # 대소문자 무시/부분 일치 검색
+        target_lower = target.lower()
+        for group_name, group in self.resources['manager_api'].items():
+            for method in group.get('methods', []):
+                if target_lower in method.get('name', '').lower():
+                    return {"group": group_name, "info": method}
+        return None
+
+    def _find_event(self, identifier: str) -> Optional[Dict[str, Any]]:
+        if not identifier or not self.resources.get('event_codes'):
+            return None
+
+        event_codes = self.resources['event_codes']
+        target = identifier.strip().lower()
+
+        for event in event_codes.get('commonly_monitored_events', []):
+            name = event.get('event', '').lower()
+            code_hex = f"0x{event.get('code', 0):04x}"
+            if target == name or target == code_hex.lower():
+                return event
+
+        # 부분 일치 허용
+        for event in event_codes.get('commonly_monitored_events', []):
+            name = event.get('event', '').lower()
+            if target in name:
+                return event
+        return None
+
+    def _read_resource_file(self, relative_path: str, max_lines: int = 120) -> str:
+        """리소스 파일을 안전하게 읽고 앞부분만 반환"""
+        try:
+            project_root = Path(__file__).parent.parent
+            full_path = project_root / relative_path
+            if not full_path.exists():
+                return f"⚠️ 파일을 찾을 수 없습니다: {relative_path}"
+
+            lines: List[str] = []
+            with open(full_path, 'r', encoding='utf-8', errors='ignore') as file:
+                for idx, line in enumerate(file):
+                    if idx >= max_lines:
+                        lines.append("... (생략) ...")
+                        break
+                    lines.append(line.rstrip('\n'))
+
+            header = f"# File: {relative_path}\n# Preview (상위 {max_lines}라인)\n"
+            return header + "\n".join(lines)
+        except Exception as exc:
+            return f"⚠️ 파일 로딩 실패 ({relative_path}): {exc}"
+
+
+    async def resource_planner_node(self, state: GraphState) -> Dict[str, Any]:
+        """LLM에게 리소스 선택을 맡기고 결과를 정리"""
+        test_case_info = state.get("test_case_info", [])
+        if not test_case_info:
+            message = "⚠️ 테스트케이스가 없어 리소스 계획을 세울 수 없습니다."
+            await cl.Message(content=message).send()
+            return {"resource_plan_text": message, "resource_plan": {}, "selected_resources": {}}
+
+        # 테스트케이스 텍스트와 키워드
+        combined_text = "\n\n".join(tc.get("content", "") for tc in test_case_info)
+        keywords = self._extract_keywords(combined_text)
+
+        # 🆕 전체 리소스 데이터 준비 (샘플이 아닌 전체)
+        # category_map.json 전체 (keywords, description, manager_methods 포함)
+        category_map_full = json.dumps(
+            self.resources.get("category_map", {}).get("categories", []),
+            ensure_ascii=False,
+            indent=2
+        )
+
+        # manager_api_index.json 전체 (너무 길면 잘라내기)
+        manager_api_full = json.dumps(
+            self.resources.get("manager_api", {}),
+            ensure_ascii=False,
+            indent=2
+        )
+
+        # event_codes 전체
+        event_codes_full = json.dumps(
+            self.resources.get("event_codes", {}).get("commonly_monitored_events", []),
+            ensure_ascii=False,
+            indent=2
+        )
+
+        resource_prompt = (
+            f"당신은 30년 경력의 GSDK 자동화 전문가입니다. 아래 테스트케이스를 분석하여 **관련된 모든 리소스를 선택**하세요.\n\n"
+            "## 🎯 중요 원칙\n\n"
+            "- 테스트케이스와 **조금이라도 관련 있는** 모든 카테고리를 선택하세요\n"
+            "- 각 카테고리의 keywords, description, manager_methods를 보고 관련성을 판단하세요\n"
+            "- **불확실하면 포함**하는 것이 좋습니다 (나중에 Phase 2-3에서 필터링됨)\n"
+            "- Manager API는 해당 카테고리의 manager_methods를 **모두** 포함하세요\n"
+            "- Event codes는 테스트 검증에 필요한 모든 이벤트를 포함하세요\n"
+            "- 충분히 많은 리소스를 선택하는 것이 코드 생성 품질을 높입니다\n\n"
+            "---\n\n"
+            "## 📋 테스트케이스\n\n"
+            "\"\"\"\n"
+            f"{combined_text}\n"
+            "\"\"\"\n\n"
+            f"**추출된 키워드**: {', '.join(keywords[:40])}\n\n"
+            "---\n\n"
+            "## 📚 사용 가능한 전체 카테고리 목록\n"
+            "(각 카테고리의 keywords, description, manager_methods를 확인하여 관련성 판단)\n\n"
+            "```json\n"
+            f"{category_map_full}\n"
+            "```\n\n"
+            "---\n\n"
+            "## 📋 Manager API 인덱스 (전체)\n\n"
+            "```json\n"
+            f"{manager_api_full}\n"
+            "```\n\n"
+            "---\n\n"
+            "## 📋 감시 가능한 이벤트 목록 (전체)\n\n"
+            "```json\n"
+            f"{event_codes_full}\n"
+            "```\n\n"
+            "---\n\n"
+            "## 🎯 출력 형식\n\n"
+            "JSON 형식으로만 답변하세요. **관련된 모든 리소스를 충분히 포함**하세요.\n\n"
+            "```json\n"
+            "{{\n"
+            "  \"categories\": [\"user\", \"auth\", \"card\", \"finger\"],\n"
+            "  \"manager_methods\": [\"enrollUsers\", \"deleteUser\", \"setAuthConfig\", \"getAuthConfig\", \"verifyUser\"],\n"
+            "  \"event_codes\": [\"EVENT_USER_ENROLLED\", \"EVENT_AUTH_SUCCESS\", \"EVENT_VERIFY_SUCCESS\"],\n"
+            "  \"resource_files\": [\"demo/example/user/user.py\", \"demo/example/auth/auth.py\"],\n"
+            "  \"notes\": \"user: 사용자 등록/삭제, auth: 인증 설정, card/finger: 검증 관련\"\n"
+            "}}\n"
+            "```\n\n"
+            "**주의**: 설명 문장 없이 JSON만 출력하세요."
+        )
+
+        # 🔍 디버깅: 프롬프트 길이 출력
+        prompt_length = len(resource_prompt)
+        estimated_tokens = prompt_length // 4
+        print(f"\n🔍 [DEBUG] resource_planner_node 프롬프트 통계:")
+        print(f"   - 프롬프트 길이: {prompt_length:,} 글자")
+        print(f"   - 예상 토큰: ~{estimated_tokens:,} 토큰")
+        print(f"   - category_map_full 길이: {len(category_map_full):,} 글자")
+        print(f"   - manager_api_full 길이: {len(manager_api_full):,} 글자")
+        print(f"   - event_codes_full 길이: {len(event_codes_full):,} 글자")
+
+        plan_text = await self.llm.ainvoke(resource_prompt)
+        default_plan = {
+            "categories": [],
+            "manager_methods": [],
+            "event_codes": [],
+            "resource_files": [],
+            "notes": ""
+        }
+        parsed_plan = self._safe_parse_json(plan_text, {"resource_plan": default_plan})
+        resource_plan = parsed_plan.get("resource_plan", parsed_plan if parsed_plan != {} else default_plan)
+
+        await cl.Message(
+            content=f"✅ **리소스 계획 수립 완료**\n```json\n{json.dumps(resource_plan, ensure_ascii=False, indent=2)}\n```"
+        ).send()
+
+        return {
+            "resource_plan_text": plan_text,
+            "resource_plan": resource_plan
+        }
+
+
 
 #RAG_Pipeline(RAG 기본값)을 상속받아 테스트와 관련된 함수를 생성
 class RAG_Function(RAG_Pipeline) :
@@ -376,502 +758,223 @@ class RAG_Function(RAG_Pipeline) :
             return default
 
 
-
-    def load_learn_summary_info(self) -> Optional[str]:
-        """Step 5 최종 요약 정보 로드"""
-        import json
-
-        # 1. 메모리 캐시 확인
-        if RAG_Pipeline.cached_project_knowledge is not None:
-            print("✅ [Step 5 요약] 메모리에서 로드 (즉시)")
-            return RAG_Pipeline.cached_project_knowledge
-
-        # 2. 파일 캐시 확인
-        if os.path.exists(RAG_Pipeline.learn_summary_info_path):
-            try:
-                with open(RAG_Pipeline.learn_summary_info_path, 'r', encoding='utf-8') as f:
-                    cached_data = json.load(f)
-                    knowledge = cached_data.get('knowledge', '')
-                    timestamp = cached_data.get('timestamp', '')
-                    print(f"✅ [Step 5 요약] 파일에서 로드 (저장 시각: {timestamp})")
-                    # 메모리에도 저장
-                    RAG_Pipeline.cached_project_knowledge = knowledge
-                    return knowledge
-            except Exception as e:
-                print(f"⚠️ [Step 5 요약] 파일 로드 실패: {e}")
-                return None
-
-        print("ℹ️ [Step 5 요약] 캐시 없음 - 새로 학습 필요")
-        return None
-
-
-    async def generate_code(self, test_case_info: List[Dict], test_case_analysis: str = "") -> str:
+    def _read_full_file(self, file_path: str, max_lines: int = None) -> str:
         """
-        ✨ 간소화: 학습된 내용만 사용 (파일 재로딩 불필요)
-        ✨ 개선: 테스트케이스 분석 내용 포함
-        """
-        import os
-        import json
+        파일 전체를 읽어 문자열로 반환
 
+        Args:
+            file_path: 읽을 파일 경로 (프로젝트 루트 기준 상대 경로)
+            max_lines: 최대 라인 수 (None이면 전체)
+
+        Returns:
+            파일 내용 (문자열)
+        """
         try:
-            print("--- 3. ⚡ 자동화코드 생성 (캐시된 학습 내용 기반) ---")
+            project_root = Path(__file__).parent.parent
+            full_path = project_root / file_path
+
+            if not full_path.exists():
+                print(f"   ⚠️ 파일을 찾을 수 없습니다: {file_path}")
+                return f"# 파일 없음: {file_path}"
+
+            with open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
+                if max_lines:
+                    lines = []
+                    for idx, line in enumerate(f):
+                        if idx >= max_lines:
+                            lines.append(f"... (생략: {max_lines}라인 초과)")
+                            break
+                        lines.append(line.rstrip('\n'))
+                    content = '\n'.join(lines)
+                else:
+                    content = f.read()
+
+            print(f"   ✓ {file_path} 로드 완료 ({len(content)} chars)")
+            return content
 
-            # ✨ 프로젝트 전체 학습 로드 (캐시 사용)
-            accumulated_knowledge = self.load_learn_summary_info()
-            print(f"   ✅ 학습 내용 로드 완료 ({len(accumulated_knowledge):,}자)")
-
-            # ❌ Proto/Core 파일 재로딩 제거 (이미 accumulated_knowledge에 포함됨)
-
-            #테스트케이스 info를 쿼리 형태로 바꿈
-            self.automation_plan_prompt_template = PromptTemplate(
-                input_variables=[
-              "accumulated_knowledge",  # ✨ 모든 파일 학습 결과
-              "test_case_content",
-              "test_case_metadata",
-              "test_case_analysis"  # ✨ 테스트케이스 분석 결과
-          ],
-          template="""
-당신은 GSDK Python 자동화 테스트 코드 전문가입니다.
-
----
-
-## 📚 학습 내용 (이미 학습 완료)
-
-{accumulated_knowledge}
-
-위 내용은 다음을 **전체 학습**한 결과입니다:
-- `biostar/proto/` - Proto 메시지 정의
-- `biostar/service/` - gRPC 서비스 구현 (pb2)
-- `demo/test/` - 실제 성공한 테스트 코드 **⭐ 주요 참조**
-- `demo/manager.py` - ServiceManager API
-- `demo/test/util.py` - 헬퍼 함수
-- `example/` - API 사용 패턴
-
-**이 학습 내용에서 찾은 것만 사용하세요. 추측하지 마세요.**
-
----
-
-## 🔍 테스트케이스 분석 결과
-
-{test_case_analysis}
-
-위 분석의 **8개 항목 전체**를 코드에 반영하세요:
-1. 테스트 목적 이해
-2. 필요한 기술 요소 (Proto, gRPC, example, ServiceManager, 데이터)
-3. 검증 항목 (Expected Result)
-4. 테스트 데이터 요구사항
-5. 테스트 베이스 클래스 요구사항
-6. 유틸리티 요구사항
-7. 실제 코드 패턴 참조
-8. 전체 커버리지 요구사항
-
----
-
-## 📋 테스트케이스 내용
-
-{test_case_content}
-
-**메타데이터**:
-{test_case_metadata}
-
----
-
-## 🎯 코드 생성 지침
-
-### 1️⃣ 분석 결과 기반 구현
-- 테스트케이스 분석 결과의 요구사항을 **학습 내용에서 매칭**
-- 학습 내용에서 찾은 파일, 함수, API만 사용
-- demo/test/의 성공한 코드 패턴 참조
-
-### 2️⃣ 필수 구조 (CLAUDE.md 워크플로우)
-```python
-# 📦 필수 Import (항상 포함)
-import unittest
-import util
-from testCOMMONR import *
-from manager import ServiceManager
-
-# 📦 사용하는 경우만 Import
-import {{service}}_pb2  # 학습 내용에서 찾은 pb2만
-# import os, json 등 (필요 시)
-
-# 🏗️ 클래스 구조
-class testCOMMONR_{{issue_number}}_{{step_index}}(TestCOMMONR):
-    \"\"\"전체 테스트 시나리오 설명\"\"\"
-
-    def testCommonr_{{issue_number}}_{{step_index}}_{{number}}_{{description}}(self):
-        \"\"\"
-        해당 테스트 시나리오 설명
-        - TC의 Test Step X 구현
-        - TC의 Expected Result Y 검증
-        \"\"\"
-
-        # 1. Capability 체크 (필요 시)
-        # 분석 결과에서 요구된 capability만 체크
-
-        # 2. 테스트 데이터 생성 (JSON 우선)
-        # 학습 내용에서 찾은 Builder 패턴 사용
-        {{data}} = None
-        for entry in os.listdir("./data"):
-            if entry.startswith("{{data}}") and entry.endswith(".json"):
-                with open("./data/" + entry, encoding='UTF-8') as f:
-                    {{data}} = json.load(f, cls=util.{{Data}}Builder)
-                    break
-
-        # 3. API 호출 (학습 내용의 ServiceManager 메서드 사용)
-        # 분석 결과에서 찾은 API만 호출
-
-        # 4. 검증 (Expected Result 전체 구현)
-        # unittest.assertEqual, assertTrue 등 사용
-```
-
-### 3️⃣ 데이터 생성 전략
-- **우선순위 1**: JSON 파일 로드 (util.py의 Builder 사용)
-- **우선순위 2**: 기존 데이터 수정 (JSON 값 기반)
-- **util.py 사용법**: `util.함수명()` 형태 (직접 import 금지)
-
-### 4️⃣ 검증 구현
-- **Expected Result의 모든 항목 검증**
-- unittest assertion 사용
-- EventMonitor 필요 시 사용 (분석 결과 참조)
-
-### 5️⃣ 금지 사항
-- ❌ setUp/tearDown 재정의 금지
-- ❌ 학습 내용에 없는 함수/API 사용 금지
-- ❌ Builder 직접 import 금지 (util 사용)
-- ❌ pb2 import 후 미사용 금지
-- ❌ 구체적 함수명 예시를 그대로 복사 금지
-
----
-
-## 📝 출력 요구사항
-
-1. **파일명**: `testCOMMONR_{{숫자}}_{{step_index}}.py`
-   - 예: COMMONR-21 → testCOMMONR_21_1.py
-
-2. **클래스명**: `testCOMMONR_{{숫자}}_{{step_index}}(TestCOMMONR)`
-
-3. **함수명**: `testCommonr_{{숫자}}_{{step_index}}_{{N}}_{{설명}}()`
-   - N: 1, 2, 3... (순차 증가)
-   - 설명: 테스트 내용 요약
-
-4. **완전한 Python 코드 생성**
-   - 모든 Test Step 구현
-   - 모든 Expected Result 검증
-   - 데이터 생성 전략 준수
-
----
-
-⚠️ **최종 체크**
-- [ ] 테스트케이스 분석 결과의 8개 항목 전체 반영
-- [ ] 학습 내용에서 찾은 것만 사용 (추측 금지)
-- [ ] demo/test/의 성공 패턴 참조
-- [ ] Expected Result 전체 검증
-- [ ] util.함수명() 형태 사용
-- [ ] pb2 import 시 반드시 사용
-
-**완전한 testCOMMONR 스타일 테스트 코드 계획을 생성하세요.**
-Think step by step. 시간이 오래 걸려도 괜찮습니다.
-""")
-            
-            
-            self.automation_prompt_template = PromptTemplate(
-                input_variables=[
-              "accumulated_knowledge",  # ✨ 모든 파일 학습 결과
-              "test_case_content",
-              "test_case_analysis",  # ✨ 테스트케이스 분석 결과
-              "generated_plan"
-          ],
-          template="""
-당신은 GSDK Python 자동화 테스트 코드 전문가입니다.
-
----
-
-## 📚 학습 내용 (이미 학습 완료)
-
-{accumulated_knowledge}
-
-위 내용은 다음을 **전체 학습**한 결과입니다:
-- `biostar/proto/` - Proto 메시지 정의
-- `biostar/service/` - gRPC 서비스 구현 (pb2)
-- `demo/test/` - 실제 성공한 테스트 코드 **⭐ 주요 참조**
-- `demo/manager.py` - ServiceManager API
-- `demo/test/util.py` - 헬퍼 함수
-- `example/` - API 사용 패턴
-
-**이 학습 내용에서 찾은 것만 사용하세요. 추측하지 마세요.**
-
----
-
-## 🔍 테스트케이스 분석 결과
-
-{test_case_analysis}
-
-위 분석의 **8개 항목 전체**를 코드에 반영하세요:
-1. 테스트 목적 이해
-2. 필요한 기술 요소 (Proto, gRPC, example, ServiceManager)
-3. **검증 항목** ⭐ **가장 중요** (Test Step 절차, Test Data 반영, Expected Result 검증)
-4. 테스트 데이터 요구사항
-5. 테스트 베이스 클래스 요구사항
-6. 유틸리티 요구사항
-7. 실제 코드 패턴 참조
-8. 전체 테스트 커버리지 요구사항
-
-**특히 항목 3이 가장 중요합니다:**
-- TC의 Test Step 절차대로 코드를 작성했는가?
-- TC의 Test Data 값을 반영했는가?
-- TC의 Expected Result대로 검증했는가?
-
----
-
-## 📋 테스트케이스 내용
-
-{test_case_content}
-
----
-
-## 📋 자동화코드 계획
-
-{generated_plan}
-
-위 계획을 기반으로 코드를 생성하세요.
-
----
-
-## 🎯 코드 생성 지침
-
-### 1️⃣ 분석 결과 기반 구현 (8개 항목 체크)
-
-**항목 3: Test Step / Data / Expected Result 구현** ⭐ 최우선
-- TC의 **Test Step 절차**를 순서대로 구현
-- TC의 **Test Data** 값을 정확히 반영
-- TC의 **Expected Result** 모든 항목을 검증
-
-**항목 2: 필요한 기술 요소 활용**
-- 학습 내용에서 찾은 Proto 메시지만 사용
-- 학습 내용에서 찾은 gRPC 서비스/메서드만 호출
-- ServiceManager API 활용
-
-**항목 4: 테스트 데이터 생성**
-- JSON 파일 로드 우선 (util.py의 Builder 활용)
-- 필요 시 기존 데이터 수정 (JSON 값 기반)
-
-**항목 7: demo/test/ 성공 패턴 참조**
-- import 패턴
-- 데이터 처리 방식
-- API 호출 흐름
-- 검증 방법
-
----
-
-### 2️⃣ 필수 구조 (CLAUDE.md 워크플로우)
-
-```python
-# 📦 필수 Import (항상 포함)
-import unittest
-import util
-from testCOMMONR import *
-from manager import ServiceManager
-
-# 📦 사용하는 경우만 Import
-import {{service}}_pb2  # 학습 내용에서 찾은 pb2만
-import os, json  # 필요 시
-
-# 🏗️ 클래스 구조
-class testCOMMONR_{{issue_number}}_{{step_index}}(TestCOMMONR):
-    \"\"\"전체 테스트 시나리오 설명\"\"\"
-
-    def testCommonr_{{issue_number}}_{{step_index}}_{{number}}_{{description}}(self):
-        \"\"\"
-        해당 테스트 시나리오 설명
-        - TC의 Test Step X 구현
-        - TC의 Test Data 반영
-        - TC의 Expected Result Y 검증
-        \"\"\"
-
-        # 1. Capability 체크 (필요 시)
-        # 분석 결과 항목 2에서 요구된 capability만 체크
-
-        # 2. 테스트 데이터 생성 (항목 4 반영)
-        # JSON 우선, 학습 내용에서 찾은 Builder 패턴 사용
-        {{data}} = None
-        for entry in os.listdir("./data"):
-            if entry.startswith("{{data}}") and entry.endswith(".json"):
-                with open("./data/" + entry, encoding='UTF-8') as f:
-                    {{data}} = json.load(f, cls=util.{{Data}}Builder)
-                    break
-
-        # 필요 시 기존 데이터 수정 (JSON 값 기반)
-
-        # 3. API 호출 (항목 2 반영)
-        # 학습 내용의 ServiceManager 메서드 사용
-        # TC의 Test Step 절차대로 호출
-
-        # 4. 검증 (항목 3 반영)
-        # TC의 Expected Result 전체 구현
-        # unittest.assertEqual, assertTrue 등 사용
-```
-
----
-
-### 3️⃣ 데이터 생성 전략 (항목 4)
-
-**우선순위 1: JSON 파일 로드**
-```python
-{{data}} = None
-for entry in os.listdir("./data"):
-    if entry.startswith("{{data}}") and entry.endswith(".json"):
-        with open("./data/" + entry, encoding='UTF-8') as f:
-            {{data}} = json.load(f, cls=util.{{Data}}Builder)
-            break
-```
-
-**우선순위 2: 기존 데이터 수정**
-- JSON 값을 기반으로 필요한 데이터 생성
-- 예: 지문+PIN 유저 필요 → 기존 유저의 지문+PIN 값 활용
-
-**util.py 사용법:**
-- `util.함수명()` 형태로 사용
-- Builder 직접 import 금지
-
----
-
-### 4️⃣ Test Step / Data / Expected Result 구현 (항목 3) ⭐ 최우선
-
-**TC의 Test Step 절차 구현:**
-- TC의 각 Step을 순서대로 코드로 작성
-- 학습 내용에서 찾은 API/함수만 사용
-
-**TC의 Test Data 반영:**
-- TC의 Data 항목에 명시된 데이터 값 사용
-- JSON 파일 또는 Builder로 생성
-
-**TC의 Expected Result 검증:**
-- TC의 모든 Expected Result 항목 검증
-- unittest assertion 사용 (assertEqual, assertTrue 등)
-- EventMonitor 필요 시 사용
-
----
-
-### 5️⃣ 금지 사항
-
-- ❌ setUp/tearDown 재정의 금지
-- ❌ 학습 내용에 없는 함수/API 사용 금지
-- ❌ Builder 직접 import 금지 (util 사용)
-- ❌ pb2 import 후 미사용 금지
-- ❌ 파일 맨 위에 주석 (# testCOMMONR_21_1.py) 금지
-
----
-
-## 📝 출력 요구사항
-
-1. **파일명**: `testCOMMONR_{{숫자}}_{{step_index}}.py`
-   - 예: COMMONR-21 → testCOMMONR_21_1.py
-
-2. **클래스명**: `testCOMMONR_{{숫자}}_{{step_index}}(TestCOMMONR)`
-
-3. **함수명**: `testCommonr_{{숫자}}_{{step_index}}_{{N}}_{{설명}}()`
-   - N: 1, 2, 3... (순차 증가)
-   - 설명: 테스트 내용 요약
-
-4. **완전한 Python 코드 생성**
-   - TC의 모든 Test Step 구현
-   - TC의 Test Data 반영
-   - TC의 모든 Expected Result 검증
-   - 데이터 생성 전략 준수
-   - demo/test/ 패턴 참조
-
----
-
-⚠️ **최종 체크**
-
-**핵심 체크 (항목 3: Test Step / Data / Expected Result)** ⭐ 가장 중요
-- [ ] TC의 Test Step 절차대로 구현
-- [ ] TC의 Test Data 값 반영
-- [ ] TC의 Expected Result 전체 검증
-
-**기타 체크**
-- [ ] 테스트케이스 분석 결과의 8개 항목 전체 반영
-- [ ] 학습 내용에서 찾은 것만 사용 (추측 금지)
-- [ ] demo/test/의 성공 패턴 참조
-- [ ] util.함수명() 형태 사용
-- [ ] pb2 import 시 반드시 사용
-- [ ] 데이터 생성 전략 준수 (각 number 함수마다)
-- [ ] 검증 코드 충분히 작성 (길어져도 됨)
-
-**생성 계획과 TC 분석 결과를 기반으로, Test Step/Data/Expected Result가 완벽하게 충족되는 완전한 testCOMMONR 스타일 테스트 코드를 생성하세요.**
-
-Think step by step. 시간이 오래 걸려도 괜찮습니다.
-""")
-
-            # 계획 프롬프트 포맷팅 (간소화)
-            formatted_plan_prompt = self.automation_plan_prompt_template.format(
-                accumulated_knowledge=accumulated_knowledge,
-                test_case_content=test_case_info[0]['content'],
-                test_case_metadata=test_case_info[0]['metadata'],
-                test_case_analysis=test_case_analysis if test_case_analysis else "분석 내용 없음"
-            )
-
-            print("--- 자동화코드 계획 프롬프트 길이 ---")
-            print(f"글자 수: {len(formatted_plan_prompt):,}자 (간소화됨!)")
-
-            # LLM 호출 - 계획 생성
-            await cl.Message(content="**3-1. 📝 자동화코드 계획 생성 중...**").send()
-            print("   🔧 [코드 생성] 자동화코드 계획 생성 중...")
-            generated_plans = await self.llm.ainvoke(formatted_plan_prompt)
-            print("   ✅ [코드 생성] 자동화코드 계획 생성 완료")
-            await cl.Message(content=f"✅ **계획 생성 완료**\n\n```markdown\n{generated_plans[:500]}...\n```").send()
-
-            # 실제 코드 생성 프롬프트 포맷팅 (간소화)
-            formatted_prompt = self.automation_prompt_template.format(
-                accumulated_knowledge=accumulated_knowledge,
-                test_case_content=test_case_info[0]['content'],
-                test_case_analysis=test_case_analysis if test_case_analysis else "분석 내용 없음",
-                generated_plan=generated_plans
-            )
-
-            print("--- 자동화코드 생성 프롬프트 길이 ---")
-            print(f"글자 수: {len(formatted_prompt):,}자 (간소화됨!)")
-
-            # LLM 호출
-            await cl.Message(content="**3-2. ⚡ 최종 코드 생성 중...**").send()
-            print("   🔧 [코드 생성] 최종 자동화코드 생성 중...")
-            generated_code = await self.llm.ainvoke(formatted_prompt)
-            print("   ✅ [코드 생성] 최종 자동화코드 생성 완료")
-            await cl.Message(content="✅ **코드 생성 완료!**").send()
-
-            # 코드 반환
-            return generated_code
-            
         except Exception as e:
-            print(f"❌ 자동화코드 계획 생성 중 오류: {e}")
-            return "자동화 코드 계획 생성에 실패했습니다."
-
-class GraphState(TypedDict):
-    # 필수 상태들
-    original_query: str                     # 사용자의 최초 질문
-    test_case_info: List[Dict]              # 테스트케이스 RAG에서 찾은 정보
-    test_case_analysis: str                 # 테스트케이스 분석 결과 (커버리지 포함)
-    retrieved_code_snippets: List[Dict]     # LLM이 선별한 자동화 코드 조각들
-    cached_knowledge: str                   # 기존 캐시된 학습 내용
-    knowledge_comparison: str               # 기존 지식과 새 학습 내용 비교 결과
-    should_relearn: bool                    # 재학습 필요 여부
-    missing_knowledge: str                  # 학습 비교 결과에서 추출한 누락된 지식
-    user_feedback: str                      # 사용자 피드백 (재학습 선택 등)
-    final_code: str                         # 최종 생성된 자동화 코드
-    reasoning_process: str                  # 코드 생성 시 LLM의 추론 과정
-    # ✨ 추가
-    conversation_history: List[Dict[str, str]]  # [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}]
-    error: str                              # 에러 발생 시 메시지
+            print(f"   ✗ {file_path} 로드 실패: {e}")
+            return f"# 파일 로드 실패: {file_path}\n# 오류: {e}"
 
 
-class RAG_Graph(RAG_Function) :
-    def __init__(self, **kwargs):
-        # **kwargs로 모든 인자를 받아 부모 클래스에 전달
-        super().__init__(**kwargs)
-        self.graph = self._build_graph()
-        
-    # 1. 노드 정의 메서드
+    def _load_category_files_full(self, category_name: str) -> Dict[str, str]:
+        """
+        카테고리의 모든 관련 파일을 통째로 로드
+
+        Args:
+            category_name: 카테고리 이름 (예: "user", "auth", "finger")
+
+        Returns:
+            Dict[파일타입, 파일내용] - {"example": "...", "pb2": "...", "proto": "..."}
+        """
+        files = {}
+
+        # category_map.json에서 파일 경로 조회
+        category_info = self._get_category_by_name(category_name)
+        if not category_info:
+            print(f"   ⚠️ 카테고리를 찾을 수 없습니다: {category_name}")
+            return files
+
+        print(f"\n📂 카테고리 '{category_name}' 파일 로드 중...")
+
+        # example 파일
+        example_file = category_info.get("example_file")
+        if example_file:
+            files['example'] = self._read_full_file(example_file)
+
+        # pb2 파일
+        pb2_file = category_info.get("pb2_file")
+        if pb2_file:
+            files['pb2'] = self._read_full_file(pb2_file)
+
+        # proto 파일
+        proto_file = category_info.get("proto_file")
+        if proto_file:
+            files['proto'] = self._read_full_file(proto_file)
+
+        # pb2_grpc 파일 (선택적)
+        pb2_grpc_file = category_info.get("pb2_grpc_file")
+        if pb2_grpc_file:
+            files['pb2_grpc'] = self._read_full_file(pb2_grpc_file)
+
+        print(f"   ✅ 카테고리 '{category_name}' 파일 {len(files)}개 로드 완료")
+        return files
+
+
+    def _extract_guide_section(self, guide_text: str, section_marker: str) -> str:
+        """
+        가이드 문서에서 특정 섹션만 추출
+
+        Args:
+            guide_text: 전체 가이드 문서
+            section_marker: 섹션 시작 마커 (예: "### 3.1 user 카테고리")
+
+        Returns:
+            해당 섹션 내용 (다음 섹션 전까지)
+        """
+        import re
+
+        if not guide_text or not section_marker:
+            return ""
+
+        # section_marker 이후부터 다음 ### 전까지 추출
+        pattern = rf"{re.escape(section_marker)}(.*?)(?=\n### |\Z)"
+        match = re.search(pattern, guide_text, re.DOTALL | re.MULTILINE)
+
+        if match:
+            return match.group(1).strip()
+
+        # 정확한 매칭 실패 시 유사 검색
+        pattern_loose = rf".*{re.escape(section_marker.split()[-1])}.*\n(.*?)(?=\n### |\Z)"
+        match = re.search(pattern_loose, guide_text, re.DOTALL | re.MULTILINE)
+
+        if match:
+            return match.group(1).strip()
+
+        return ""
+
+
+    def _get_relevant_guide_sections(self, guide_type: str, categories: List[str]) -> str:
+        """
+        카테고리 리스트 기반으로 관련 가이드 섹션 추출
+
+        Args:
+            guide_type: 'reference' 또는 'test_data'
+            categories: 카테고리 이름 리스트 (예: ['user', 'auth', 'finger'])
+
+        Returns:
+            관련 섹션들을 결합한 문자열
+        """
+        guide_text = self.guides.get(guide_type, '')
+        if not guide_text or not categories:
+            return ""
+
+        sections = []
+
+        for category_name in categories:
+            # REFERENCE_GUIDE 섹션 추출
+            if guide_type == 'reference':
+                # "### 3.X {category} 카테고리" 형식 검색
+                section = self._extract_guide_section(
+                    guide_text,
+                    f"카테고리"
+                )
+                if section and category_name in section.lower():
+                    sections.append(f"## {category_name.upper()} 카테고리\n\n{section}")
+
+            # TEST_DATA_GUIDE 섹션 추출
+            elif guide_type == 'test_data':
+                # **Category**: `{category}` 형식 검색
+                lines = guide_text.split('\n')
+                in_section = False
+                category_section = []
+
+                for i, line in enumerate(lines):
+                    if f'**Category**: `{category_name}`' in line:
+                        in_section = True
+                        category_section = [line]
+                    elif in_section:
+                        if line.startswith('**Category**:') and category_name not in line:
+                            break
+                        category_section.append(line)
+                        if i >= len(lines) - 1:
+                            break
+
+                if category_section:
+                    sections.append(f"## {category_name.upper()} 데이터 패턴\n\n" + '\n'.join(category_section))
+
+        if not sections:
+            # 섹션을 찾지 못한 경우 가이드 전체의 일부 반환
+            return guide_text[:5000] + "\n... (생략)"
+
+        return "\n\n---\n\n".join(sections)
+
+
+    def _extract_category_patterns(self, test_data_guide: str, category_name: str) -> str:
+        """
+        TEST_DATA_GUIDE에서 특정 카테고리의 데이터 생성 패턴 추출
+
+        Args:
+            test_data_guide: TEST_DATA_GUIDE 전체 텍스트
+            category_name: 카테고리 이름 (예: 'user', 'auth')
+
+        Returns:
+            해당 카테고리 관련 패턴 섹션
+        """
+        if not test_data_guide:
+            return ""
+
+        # "**Category**: `{category}`" 또는 섹션 제목으로 검색
+        lines = test_data_guide.split('\n')
+        patterns = []
+        in_relevant_section = False
+        section_lines = []
+
+        for i, line in enumerate(lines):
+            # 카테고리 태그 발견
+            if f'**Category**: `{category_name}`' in line or f'`{category_name}`' in line.lower():
+                in_relevant_section = True
+                section_lines = [line]
+            elif in_relevant_section:
+                # 다음 섹션 시작 (##로 시작) 또는 다른 카테고리 발견
+                if line.startswith('## ') or (line.startswith('**Category**:') and category_name not in line):
+                    patterns.append('\n'.join(section_lines))
+                    section_lines = []
+                    in_relevant_section = False
+                else:
+                    section_lines.append(line)
+
+        # 마지막 섹션 추가
+        if section_lines:
+            patterns.append('\n'.join(section_lines))
+
+        if patterns:
+            return "\n\n".join(patterns)
+
+        return f"(카테고리 '{category_name}'에 대한 데이터 패턴을 찾을 수 없습니다.)"
+
+
+
     async def testcase_rag_node(self, state: GraphState) -> Dict[str, Any]:
         """테스트 케이스 검색 노드"""
         await cl.Message(content=" **1. 🔍 테스트케이스 검색 시작...**").send()
@@ -882,434 +985,742 @@ class RAG_Graph(RAG_Function) :
         await cl.Message(content=f"✅ **테스트케이스 검색 완료** \n```json\n{json.dumps(results, ensure_ascii=False, indent=2, default=str)}\n```").send()
         return {"test_case_info": results}
 
-    async def analyze_testcase_node(self, state: GraphState) -> Dict[str, Any]:
-        """테스트케이스 분석 노드 - 커버리지 평가 포함"""
-        print("✅ current node : analyze_testcase_node")
-        await cl.Message(content="**2. 🔍 테스트케이스 상세 분석 중...**").send()
 
-        try:
-            test_case_info = state.get("test_case_info", [])
+    async def base_structure_node(self, state: GraphState) -> Dict[str, Any]:
+        """
+        Phase 2: 핵심 3파일(manager.py, testCOMMONR.py, util.py)을 통째로 넣고
+        테스트 클래스의 기본 구조를 생성
+        """
+        print("\n" + "="*80)
+        print("🏗️ Phase 2: 기본 구조 생성 (핵심 3파일 통째로)")
+        print("="*80)
 
-            if not test_case_info:
-                return {
-                    "test_case_analysis": "테스트케이스 정보가 없습니다.",
-                    "error": "테스트케이스 정보 누락"
-                }
+        test_case_info = state.get("test_case_info", [])
+        resource_plan = state.get("resource_plan", {})
 
-            # 기존 캐시된 지식 로드 (실제 존재하는 파일/API 정보)
-            learn_all_info_list = self.load_learn_all_info()  # List[Dict]
-
-            # 대화 배열을 텍스트로 변환 (프롬프트 삽입용 - content만 추출)
-            learn_all_info_text = "\n\n".join([
-                msg.get('content', '')
-                for msg in learn_all_info_list
-            ])
-
-            # 테스트케이스 분석 수행 (기존 지식과 함께)
-            analysis_result = await self.analyze_test_case(test_case_info, learn_all_info_text)
-
-            return {"test_case_analysis": analysis_result}
-
-        except Exception as e:
-            error_msg = f"analyze_testcase_node 오류: {str(e)}"
-            print(f"❌ {error_msg}")
-            return {
-                "test_case_analysis": "분석 중 오류 발생",
-                "error": error_msg
-            }
-        
-
-    async def compare_knowledge_node(self, state: GraphState) -> Dict[str, Any]:
-        """기존 학습 내용과 요구사항 비교 노드 - ✅ 사용자 선택 기능 추가 (3가지 옵션)"""
-        print("✅ current node : compare_knowledge_node")
-        await cl.Message(content="**3. ⚖️ 학습 내용 vs 요구사항 비교 중...**").send()
-
-        try:
-            test_case_analysis = state.get("test_case_analysis", "")
-            cached_knowledge = self.load_learn_summary_info()
-
-            # ✅ 비교 수행 (누락된 지식 포함)
-            comparison_result, should_relearn, missing_knowledge = await self.compare_knowledge_with_requirements(
-                cached_knowledge if cached_knowledge else "",
-                test_case_analysis
-            )
-
-            # ✅ 비교 결과를 사용자에게 명확하게 표시
-            comparison_display = f"""## 📊 학습 내용 비교 결과
-
-    {comparison_result}
-
-    ---
-
-    **AI 판단:** {'🔄 증분 학습 필요' if should_relearn else '✅ 기존 지식으로 충분'}
-
-    **누락된 지식:**
-    ```
-    {missing_knowledge if missing_knowledge else '없음'}
-    ```
-    """
-            await cl.Message(content=comparison_display).send()
-
-            # ✅ 사용자에게 2가지 버튼만 제공
-            if should_relearn and missing_knowledge:
-                # AI가 증분 학습 필요하다고 판단
-                prompt_msg = "⚠️ **AI가 증분 학습이 필요하다고 판단했습니다.** 진행하시겠습니까?"
-            else:
-                # 기존 지식으로 충분
-                prompt_msg = "✅ **기존 학습으로 충분합니다.** 어떻게 하시겠습니까?"
-
-            res = await cl.AskActionMessage(
-                content=prompt_msg,
-                actions=[
-                    cl.Action(name="use_missing", value="missing", label="🔄 증분 학습 (AI 추천)", payload={"choice": "missing"}),
-                    cl.Action(name="skip", value="skip", label="⏭️ 기존 지식으로 진행", payload={"choice": "skip"}),
-                ],
-                timeout=120
-            ).send()
-
-            # ✅ 디버깅: 응답 확인
-            print(f"🔍 [디버깅] AskActionMessage 응답: {res}")
-
-            # ✅ Chainlit 응답 파싱 (timeout 시 기본값 "skip")
-            if res:
-                user_choice = res.get("name", "skip")  # "skip" 또는 "use_missing"
-            else:
-                # timeout 또는 응답 없음 → 기존 지식으로 진행
-                user_choice = "skip"
-                await cl.Message(content="⏱️ **시간 초과 - 기존 지식으로 진행합니다.**").send()
-
-            print(f"🔍 [디버깅] 사용자 선택: {user_choice}")
-
-            # ✅ 사용자 선택 결과 표시
-            if user_choice == "skip":
-                await cl.Message(content="⏭️ **기존 지식으로 코드 생성을 진행합니다.**").send()
-                return {
-                    "cached_knowledge": cached_knowledge if cached_knowledge else "",
-                    "knowledge_comparison": comparison_result,
-                    "missing_knowledge": "",
-                    "should_relearn": False,
-                    "user_feedback": ""  # ✨ 빈 문자열 → generate_code
-                }
-            elif user_choice == "use_missing":
-                await cl.Message(content="🔄 **AI가 제안한 누락된 지식으로 증분 학습을 시작합니다.**").send()
-                return {
-                    "cached_knowledge": cached_knowledge if cached_knowledge else "",
-                    "knowledge_comparison": comparison_result,
-                    "missing_knowledge": missing_knowledge,
-                    "should_relearn": True,
-                    "user_feedback": missing_knowledge  # ✨ 누락된 지식 → additional_learn
-                }
-
-        except Exception as e:
-            error_msg = f"compare_knowledge_node 오류: {str(e)}"
-            print(f"❌ {error_msg}")
-            import traceback
-            traceback.print_exc()
-            return {
-                "cached_knowledge": "",
-                "knowledge_comparison": "비교 중 오류 발생",
-                "missing_knowledge": "",
-                "should_relearn": False,
-                "user_feedback": "",
-                "error": error_msg
-            }
-    
-    
-    async def generate_code_rag_node(self, state: GraphState) -> Dict[str, Any]:
-        """자동화코드 생성 노드 - 테스트케이스 분석 결과 포함"""
-        print("✅ current node : generate_code_rag_node")
-
-        try:
-            # GraphState에서 필요한 정보들 가져오기
-            test_case_info = state.get("test_case_info", [])
-            test_case_analysis = state.get("test_case_analysis", "")
-
-            if not test_case_info:
-                return {
-                    "final_code": "테스트케이스 정보가 없어 코드를 생성할 수 없습니다.",
-                    "error": "테스트케이스 정보 누락"
-                }
-
-            # 자동화 코드 생성 (테스트케이스 분석 결과 포함)
-            generation_result = await self.generate_code(
-                test_case_info,
-                test_case_analysis
-            )
-
-            final_code = generation_result
-            result = {
-                "final_code": final_code
-            }
-
-            return result
-
-        except Exception as e:
-            error_msg = f"generate_code_rag_node 오류: {str(e)}"
-            print(f"❌ {error_msg}")
-            return {
-                "final_code": "코드 생성 중 오류가 발생했습니다.",
-                "error": error_msg
-            }
-            
-    async def learn_project_node(self, state: GraphState) -> Dict[str, Any]:
-        """프로젝트 최초 학습 노드 - 캐시 확인 후 필요 시 학습"""
-        print("✅ current node : learn_project_node")
-
-        # 캐시 확인
-        learn_summary_info = self.load_learn_summary_info()
-        learn_all_info = self.load_learn_all_info()
-
-        if learn_summary_info is not None and len(learn_all_info) > 0:
-            print("✅ [캐시] 기존 학습 내용 사용")
-            await cl.Message(content="✅ **기존 학습 내용을 불러왔습니다.**").send()
-            # ✨ conversation_history도 로드
-            return {
-                "cached_knowledge": learn_summary_info,
-                "conversation_history": learn_all_info
-            }
-
-        # 캐시 없음 → 최초 학습
-        print("🔄 [학습] 캐시 없음 - 프로젝트 최초 학습 시작")
-        await cl.Message(content="**🔄 프로젝트 최초 학습 시작...**").send()
-
-        try:
-            # additional_query 없이 호출 (최초 학습)
-            learned_knowledge, conversation_history = await self.learn_project_structure()
-            return {"cached_knowledge": learned_knowledge,
-                    "conversation_history": conversation_history}
-        except Exception as e:
-            error_msg = f"❌ 학습 중 오류 발생: {str(e)}\n\nLM Studio 서버가 실행 중인지 확인하세요 (http://127.0.0.1:1234)"
-            print(error_msg)
+        if not test_case_info:
+            error_msg = "⚠️ 테스트케이스가 없어 기본 구조를 생성할 수 없습니다."
             await cl.Message(content=error_msg).send()
-            return {
-                "cached_knowledge": "",
-                "conversation_history": [],
-                "error": str(e)
-            }
-    
-    async def additional_learn_project_node(self, state: GraphState) -> Dict[str, Any]:
-        """프로젝트 추가 학습 노드 - 사용자 피드백 기반 추가 학습"""
-        print("✅ current node : additional_learn_project_node")
+            return {"base_structure": "", "core_files_loaded": False, "error": error_msg}
 
-        user_feedback = state.get("user_feedback", "")
-        missing_knowledge = state.get("missing_knowledge", "")
+        await cl.Message(content="🏗️ **Phase 2: 기본 구조 생성 중...**\n- manager.py, testCOMMONR.py, util.py 로딩\n- 테스트 클래스 골격 생성").send()
 
-        # 디버깅
-        print(f"🔍 [additional_learn_project_node] user_feedback: '{user_feedback}' (type: {type(user_feedback)})")
+        # 핵심 3파일 통째로 로드
+        print("\n📚 핵심 3파일 로딩 중...")
+        manager_full = self._read_full_file("demo/demo/manager.py")
+        testCOMMONR_full = self._read_full_file("demo/demo/test/testCOMMONR.py")
+        util_full = self._read_full_file("demo/demo/test/util.py")
 
-        # 피드백이 없으면 기존 학습 데이터로 진행 (이 노드에 올 일이 없어야 함)
-        if not user_feedback or user_feedback.strip() == "":
-            print("⚠️ [경고] additional_learn_project_node에 피드백 없이 도착 - 기존 캐시 반환")
-            cached_knowledge = self.load_learn_summary_info()
-            return {"cached_knowledge": cached_knowledge}
+        # 가이드 문서
+        workflow_guide = self.guides.get('workflow', '')
 
-        # 추가 학습 수행
-        print("🔄 [추가 학습] - 프로젝트 추가 학습 시작")
-        await cl.Message(content="**🔄 프로젝트 추가 학습 시작...**").send()
+        # 🆕 카테고리 기반 관련 가이드 섹션 추출
+        categories = resource_plan.get('categories', [])
+        reference_sections = self._get_relevant_guide_sections('reference', categories)
+        test_data_sections = self._get_relevant_guide_sections('test_data', categories)
 
-        # ✨ conversation_history를 파일에서 직접 로드 (GraphState가 아닌!)
-        # 이유: 프로그램 재시작 또는 중간 진입 시 GraphState에 없을 수 있음
-        conversation_history = self.load_learn_all_info()
-
-        if not conversation_history:
-            print("⚠️ [경고] conversation_history 없음 - 증분 학습 불가, 기존 캐시 반환")
-            cached_knowledge = self.load_learn_summary_info()
-            return {"cached_knowledge": cached_knowledge}
-
-        # ✨ conversation_history 전달
-        learned_knowledge = await self.learn_additional_content(
-            additional_query=missing_knowledge,
-            conversation_history=conversation_history  # ✨ 파일에서 로드한 이력 전달
+        # 🆕 Manager API 인덱스 (함수 검증용)
+        manager_api_index = json.dumps(
+            self.resources.get('manager_api', {}),
+            ensure_ascii=False,
+            indent=2
         )
-        self.save_learn_summary_info(learned_knowledge)
 
-        return {"cached_knowledge": learned_knowledge}
+        # 테스트케이스 내용 구성
+        test_case_bundle = "\n\n".join([
+            f"### 테스트케이스 #{i+1}\n"
+            f"내용:\n{tc.get('content', '')}\n\n"
+            f"메타데이터:\n```json\n{json.dumps(tc.get('metadata', {}), ensure_ascii=False, indent=2)}\n```"
+            for i, tc in enumerate(test_case_info)
+        ])
 
-    # 2. 조건부 엣지 함수 (노드 아님)
-    #테스트케이스 전용 조건부 엣지 노드
-    def testcase_decide_to_retry(self, state: GraphState) -> str:
-        """테스트 케이스 검색 결과에 따라 다음 노드 결정"""
-        test_cases = state.get("test_case_info", [])
-        if not test_cases:
-            return "retry_query"
+        # 프롬프트 구성
+        prompt = f"""# G-SDK 테스트 자동화 코드 생성 - Phase 2: 기본 구조
+
+당신은 30년 경력의 GSDK Python 테스트 전문가입니다.
+아래 테스트케이스를 바탕으로 **테스트 클래스의 기본 구조**를 생성하세요.
+
+---
+
+## 📋 테스트케이스
+
+{test_case_bundle}
+
+---
+
+## 🎯 리소스 계획
+
+```json
+{json.dumps(resource_plan, ensure_ascii=False, indent=2)}
+```
+
+---
+
+## 📚 참조 코드 (통째로 제공 - 실제 메서드만 사용할 것)
+
+### manager.py (전체)
+```python
+{manager_full}
+```
+
+### testCOMMONR.py (전체)
+```python
+{testCOMMONR_full}
+```
+
+### util.py (전체)
+```python
+{util_full}
+```
+
+---
+
+## 📖 WORKFLOW 가이드 (작업 흐름)
+
+{workflow_guide}
+
+---
+
+## 📖 REFERENCE 가이드 (API 레퍼런스 - 관련 카테고리)
+
+{reference_sections}
+
+---
+
+## 📖 TEST_DATA 가이드 (데이터 생성 패턴 - 관련 카테고리)
+
+{test_data_sections}
+
+---
+
+## 📋 Manager API 인덱스 (함수 검증용)
+
+```json
+{manager_api_index}
+```
+
+---
+
+## 🎯 생성할 것
+
+1. **Import 문**
+   - 필요한 pb2 모듈 (resource_plan의 카테고리 기반)
+   - manager, util, testCOMMONR
+   - unittest, time, random, os, json 등
+
+2. **클래스 정의**
+   - TestCOMMONR 상속
+   - Docstring (테스트 시나리오 설명)
+
+3. **setUp/tearDown**
+   - super().setUp(), super().tearDown() 호출
+   - 추가 백업/복원이 필요한 경우만 작성
+
+4. **테스트 메서드 골격**
+   - 각 테스트 스텝별 TODO 주석
+   - 메서드 이름: testCommonr_{{번호}}_{{서브번호}}_{{기능명}}
+
+5. **기본 코드 뼈대**
+   - 사용자 데이터 로드 패턴 (JSON → UserInfo)
+   - 디바이스 능력 검증 (skipTest 사용)
+
+## ⚠️ 중요 제약사항
+
+1. **실제 존재하는 메서드만 사용**:
+   - manager.py, testCOMMONR.py, util.py에 실제로 정의된 함수만 사용
+   - 존재하지 않는 헬퍼 메서드는 절대 만들지 말 것
+
+2. **정확한 시그니처 사용**:
+   - EventMonitor(svcManager, masterID, eventCode=0x..., userID=...)
+   - randomNumericUserID(), generateRandomPIN()
+   - self.svcManager.enrollUsers(), self.svcManager.getAuthConfig() 등
+
+3. **Phase 2에서는 기본 구조만**:
+   - 상세 구현은 Phase 3(카테고리별 처리)에서 진행
+   - 지금은 클래스 뼈대 + TODO 주석만
+
+## 출력 형식
+
+순수 Python 코드만 출력 (마크다운 블록 ```python 없이)
+"""
+
+        print("\n⚙️ LLM 호출 중... (기본 구조 생성)")
+        base_structure = await self.llm.ainvoke(prompt)
+
+        # 마크다운 코드 블록 제거
+        base_structure = self._clean_generated_code(base_structure)
+
+        print(f"\n✅ 기본 구조 생성 완료 ({len(base_structure)} chars)")
+        await cl.Message(content="✅ **기본 구조 생성 완료**\n- Import 문, 클래스 정의, setUp/tearDown, 테스트 메서드 골격 생성됨").send()
+
+        return {
+            "base_structure": base_structure,
+            "core_files_loaded": True
+        }
+
+
+    async def category_processor_node(self, state: GraphState) -> Dict[str, Any]:
+        """
+        Phase 3: 카테고리별로 example, pb2, proto 파일을 통째로 넣고
+        상세 코드를 순차적으로 생성
+        """
+        print("\n" + "="*80)
+        print("🔧 Phase 3: 카테고리별 상세 코드 생성")
+        print("="*80)
+
+        resource_plan = state.get("resource_plan", {})
+        base_structure = state.get("base_structure", "")
+        test_case_info = state.get("test_case_info", [])
+
+        categories = resource_plan.get("categories", [])
+
+        if not categories:
+            print("   ⚠️ 카테고리가 없어 상세 코드 생성을 건너뜁니다.")
+            return {"category_codes": {}}
+
+        await cl.Message(content=f"🔧 **Phase 3: 카테고리별 상세 코드 생성 중...**\n- 총 {len(categories)}개 카테고리 처리 예정").send()
+
+        category_codes = {}
+
+        for idx, category_name in enumerate(categories, 1):
+            print(f"\n📦 [{idx}/{len(categories)}] 카테고리 '{category_name}' 처리 중...")
+            await cl.Message(content=f"📦 **[{idx}/{len(categories)}]** 카테고리 '{category_name}' 분석 중...").send()
+
+            # 카테고리별 파일 통째로 로드
+            category_files = self._load_category_files_full(category_name)
+
+            if not category_files:
+                print(f"   ⚠️ 카테고리 '{category_name}' 파일 로드 실패, 건너뜀")
+                continue
+
+            # LLM 호출하여 카테고리별 코드 생성
+            category_code = await self._generate_category_code(
+                category_name=category_name,
+                category_files=category_files,
+                base_structure=base_structure,
+                test_case_info=test_case_info,
+                resource_plan=resource_plan
+            )
+
+            category_codes[category_name] = category_code
+            await cl.Message(content=f"✅ 카테고리 '{category_name}' 처리 완료").send()
+
+        print(f"\n✅ 전체 {len(category_codes)}개 카테고리 처리 완료")
+        return {"category_codes": category_codes}
+
+
+    async def _generate_category_code(
+        self,
+        category_name: str,
+        category_files: Dict[str, str],
+        base_structure: str,
+        test_case_info: List[Dict],
+        resource_plan: Dict
+    ) -> Dict[str, Any]:
+        """
+        특정 카테고리에 대한 상세 코드 생성
+        """
+        test_case_bundle = "\n\n".join([
+            f"### 테스트케이스 #{i+1}\n{tc.get('content', '')}"
+            for i, tc in enumerate(test_case_info)
+        ])
+
+        # 🆕 category_map.json에서 메타데이터 추출
+        category_info = self._get_category_by_name(category_name)
+        keywords = category_info.get('keywords', []) if category_info else []
+        description = category_info.get('description', '') if category_info else ''
+        manager_methods = category_info.get('manager_methods', []) if category_info else []
+
+        # 🆕 REFERENCE 가이드에서 해당 카테고리 섹션 추출
+        reference_guide = self.guides.get('reference', '')
+        reference_section = self._extract_category_patterns(reference_guide, category_name)
+
+        # 🆕 TEST_DATA 가이드에서 해당 카테고리 패턴 추출
+        test_data_guide = self.guides.get('test_data', '')
+        test_data_patterns = self._extract_category_patterns(test_data_guide, category_name)
+
+        prompt = f"""# G-SDK 테스트 자동화 - Phase 3: {category_name.upper()} 카테고리 상세 코드
+
+당신은 GSDK {category_name} 카테고리 전문가입니다.
+아래 기본 구조에 **{category_name} 관련 상세 코드**를 추가하세요.
+
+---
+
+## 📋 테스트케이스 ({category_name} 관련 부분)
+
+{test_case_bundle}
+
+---
+
+## 🏗️ 기본 구조 (Phase 2에서 생성됨)
+
+```python
+{base_structure}
+... (생략)
+```
+
+---
+
+## 📋 {category_name.upper()} 카테고리 메타데이터
+
+**키워드**: {', '.join(keywords) if keywords else '없음'}
+**설명**: {description if description else '설명 없음'}
+**Manager 메서드**: {', '.join(manager_methods) if manager_methods else '없음'}
+
+---
+
+## 📖 REFERENCE 가이드 ({category_name} 카테고리 API 사용법)
+
+{reference_section if reference_section else '# 관련 섹션 없음'}
+
+---
+
+## 📖 TEST_DATA 가이드 ({category_name} 데이터 생성 패턴)
+
+{test_data_patterns if test_data_patterns else '# 관련 패턴 없음'}
+
+---
+
+## 📚 {category_name.upper()} 카테고리 참조 파일 (통째로)
+
+### example/{category_name}/{category_name}.py
+```python
+{category_files.get('example', '# 파일 없음')}
+... (너무 길면 생략)
+```
+
+### {category_name}_pb2.py
+```python
+{category_files.get('pb2', '# 파일 없음')}
+... (너무 길면 생략)
+```
+
+### {category_name}.proto
+```protobuf
+{category_files.get('proto', '# 파일 없음')}
+---
+
+## 🎯 생성할 것
+
+1. **Import 추가 여부**:
+   - {category_name}_pb2 import가 필요한지 판단
+   - 필요하면 추가할 import 문 제시
+
+2. **{category_name} 관련 설정 코드**:
+   - 예: AuthConfig 설정 (auth), FingerprintConfig 설정 (finger)
+
+3. **{category_name} 관련 데이터 생성**:
+   - 예: UserInfo 생성 (user), CardData 생성 (card)
+
+4. **{category_name} 관련 API 호출**:
+   - manager.py의 메서드 사용 (예: enrollUsers, setAuthConfig)
+
+5. **{category_name} 관련 검증**:
+   - assertEqual, assertTrue 등
+
+## 출력 형식
+
+JSON 형식으로 답변 (마크다운 블록 없이):
+{{
+  "imports": ["import {category_name}_pb2"],
+  "setup_code": "# {category_name} 설정 코드\\n...",
+  "test_code": "# {category_name} 테스트 코드\\n...",
+  "assertions": "# {category_name} 검증 코드\\n..."
+}}
+"""
+
+        print(f"   ⚙️ LLM 호출 중... (카테고리: {category_name})")
+        result = await self.llm.ainvoke(prompt)
+
+        # JSON 파싱
+        parsed = self._safe_parse_json(result, {
+            "imports": [],
+            "setup_code": "",
+            "test_code": "",
+            "assertions": ""
+        })
+
+        print(f"   ✓ 카테고리 '{category_name}' 코드 생성 완료")
+        return parsed
+
+
+    async def merge_validate_node(self, state: GraphState) -> Dict[str, Any]:
+        """
+        Phase 4: Phase 2 기본 구조 + Phase 3 카테고리별 코드 → 최종 통합
+        테스트케이스 100% 커버리지 검증
+        """
+        print("\n" + "="*80)
+        print("🔍 Phase 4: 코드 통합 및 검증")
+        print("="*80)
+
+        base_structure = state.get("base_structure", "")
+        category_codes = state.get("category_codes", {})
+        test_case_info = state.get("test_case_info", [])
+
+        await cl.Message(content="🔍 **Phase 4: 코드 통합 및 검증 중...**\n- 기본 구조 + 카테고리별 코드 병합\n- 커버리지 분석").send()
+
+        # 테스트케이스 내용 구성
+        test_case_bundle = "\n\n".join([
+            f"### 테스트케이스 #{i+1}\n{tc.get('content', '')}"
+            for i, tc in enumerate(test_case_info)
+        ])
+
+        # 카테고리별 코드 요약
+        category_summary = json.dumps(category_codes, ensure_ascii=False, indent=2)
+
+        prompt = f"""# G-SDK 테스트 자동화 - Phase 4: 최종 코드 통합
+
+당신은 코드 통합 및 검증 전문가입니다.
+Phase 2 기본 구조와 Phase 3 카테고리별 코드를 **완벽하게 병합**하세요.
+
+---
+
+## 🏗️ 기본 구조 (Phase 2)
+
+```python
+{base_structure}
+```
+
+---
+
+## 🔧 카테고리별 상세 코드 (Phase 3)
+
+```json
+{category_summary}
+```
+
+---
+
+## 📋 테스트케이스 (커버리지 검증용)
+
+{test_case_bundle}
+
+---
+
+## 📋 Manager API 인덱스 (함수 검증용)
+
+```json
+{json.dumps(self.resources.get('manager_api', {{}}), ensure_ascii=False, indent=2)[:5000]}
+```
+
+**사용법**: 코드에서 `self.svcManager.XXX()` 호출 시 위 인덱스에 해당 메서드가 존재하는지 확인하세요.
+
+---
+
+## 📋 Event Codes (이벤트 검증용)
+
+```json
+{json.dumps(self.resources.get('event_codes', {{}}), ensure_ascii=False, indent=2)[:3000]}
+```
+
+**사용법**: EventMonitor에서 사용할 이벤트 코드를 위 목록에서 선택하세요. (예: BS2_EVENT_VERIFY_SUCCESS = 0x1000)
+
+---
+
+## 🎯 할 일
+
+1. **Import 문 통합**:
+   - 기본 구조의 import + 각 카테고리의 imports
+   - 중복 제거
+
+2. **코드 병합**:
+   - setUp 메서드: 기본 구조 + 각 카테고리 setup_code
+   - 테스트 메서드: TODO 주석 → 실제 구현 (category test_code)
+   - 검증 코드: assertions 추가
+
+3. **커버리지 검증**:
+   - 모든 테스트 스텝이 구현되었는가?
+   - 각 스텝이 올바른 API를 호출하는가?
+   - EventMonitor 등 검증 로직이 있는가?
+
+4. **함수 존재 확인 (CRITICAL)**:
+   - self.svcManager.XXX() → 위 Manager API 인덱스에 존재하는 메서드만 사용
+   - self.setXXXAuthMode() → testCOMMONR.py에 존재하는 헬퍼만 사용
+   - util.XXX() → util.py에 존재하는 함수만 사용
+   - **존재하지 않는 함수를 사용하면 invalid_functions 배열에 추가하고 needs_refinement=true로 설정**
+
+5. **이벤트 검증 확인**:
+   - EventMonitor를 사용하는 경우, eventCode가 위 Event Codes 목록에 존재하는지 확인
+   - 존재하지 않는 이벤트 코드 사용 시 invalid_functions에 추가
+
+## 출력 형식
+
+JSON 형식으로 답변:
+{{
+  "final_code": "완성된 Python 코드 전체",
+  "coverage_percentage": 95,
+  "missing_steps": ["스텝 3-2: 얼굴 인증 검증 누락"],
+  "invalid_functions": ["self.setCardAuthMode (존재하지 않음)"],
+  "needs_refinement": false,
+  "notes": "추가 설명..."
+}}
+"""
+
+        print("\n⚙️ LLM 호출 중... (코드 통합 및 검증)")
+        result = await self.llm.ainvoke(prompt)
+
+        # JSON 파싱
+        parsed = self._safe_parse_json(result, {
+            "final_code": base_structure,
+            "coverage_percentage": 0,
+            "missing_steps": [],
+            "invalid_functions": [],
+            "needs_refinement": True,
+            "notes": ""
+        })
+
+        final_code = parsed.get("final_code", base_structure)
+        coverage = parsed.get("coverage_percentage", 0)
+        needs_refinement = parsed.get("needs_refinement", False)
+
+        print(f"\n✅ 코드 통합 완료 (커버리지: {coverage}%)")
+
+        coverage_emoji = "✅" if coverage >= 90 else "⚠️" if coverage >= 70 else "❌"
+        await cl.Message(content=f"{coverage_emoji} **코드 통합 완료**\n- 커버리지: {coverage}%\n- 재생성 필요: {'예' if needs_refinement else '아니오'}").send()
+
+        return {
+            "final_code": final_code,
+            "generated_code": final_code,  # 기존 호환성
+            "coverage": coverage,
+            "validation_result": parsed,
+            "needs_refinement": needs_refinement
+        }
+
+
+    async def refine_node(self, state: GraphState) -> Dict[str, Any]:
+        """
+        Phase 5: 검증 실패 시 부족한 부분 재생성
+        """
+        print("\n" + "="*80)
+        print("🔄 Phase 5: 코드 재생성 (검증 실패 항목 수정)")
+        print("="*80)
+
+        validation_result = state.get("validation_result", {})
+        final_code = state.get("final_code", "")
+        test_case_info = state.get("test_case_info", [])
+
+        await cl.Message(content="🔄 **Phase 5: 코드 재생성 중...**\n- 검증 실패 항목 수정").send()
+
+        missing_steps = validation_result.get("missing_steps", [])
+        invalid_functions = validation_result.get("invalid_functions", [])
+
+        prompt = f"""# G-SDK 테스트 자동화 - Phase 5: 코드 재생성
+
+이전 코드에 문제가 발견되었습니다. 수정하세요.
+
+---
+
+## 🔍 검증 결과
+
+```json
+{json.dumps(validation_result, ensure_ascii=False, indent=2)}
+```
+
+---
+
+## 📄 현재 코드
+
+```python
+{final_code}
+```
+
+---
+
+## 🎯 수정 사항
+
+1. **누락된 스텝 추가**:
+{chr(10).join(f'   - {step}' for step in missing_steps) if missing_steps else '   (없음)'}
+
+2. **존재하지 않는 함수 교체**:
+{chr(10).join(f'   - {func}' for func in invalid_functions) if invalid_functions else '   (없음)'}
+
+3. **대체 방법 찾기**:
+   - manager.py, testCOMMONR.py, util.py에서 유사한 함수 찾기
+   - 직접 구현 가능한 경우 간단한 코드로 대체
+
+## 출력 형식
+
+JSON 형식으로 답변:
+{{
+  "final_code": "수정된 완전한 코드",
+  "coverage_percentage": 100,
+  "needs_refinement": false
+}}
+"""
+
+        print("\n⚙️ LLM 호출 중... (코드 재생성)")
+        result = await self.llm.ainvoke(prompt)
+
+        parsed = self._safe_parse_json(result, {
+            "final_code": final_code,
+            "coverage_percentage": state.get("coverage", 0),
+            "needs_refinement": False
+        })
+
+        refined_code = parsed.get("final_code", final_code)
+        coverage = parsed.get("coverage_percentage", 0)
+
+        print(f"\n✅ 코드 재생성 완료 (커버리지: {coverage}%)")
+        await cl.Message(content=f"✅ **코드 재생성 완료**\n- 최종 커버리지: {coverage}%").send()
+
+        return {
+            "final_code": refined_code,
+            "generated_code": refined_code,
+            "coverage": coverage,
+            "needs_refinement": False
+        }
+
+
+class RAG_Graph(RAG_Function):
+    def __init__(self, **kwargs):
+        """
+        RAG_Graph 초기화
+        부모 클래스(RAG_Function) 초기화 후 LangGraph 빌드
+        """
+        # 부모 클래스 초기화 (VectorDB, LLM 등)
+        super().__init__(**kwargs)
+
+        # LangGraph 빌드 및 초기화
+        self.graph = self._build_graph()
+
+        print("✅ RAG_Graph 초기화 완료 (LangGraph 빌드 완료)")
+
+    def _derive_artifact_info(self, query: str, state: GraphState) -> Dict[str, str]:
+        """파일 저장을 위한 메타 정보 구성"""
+        issue_key = "UNKNOWN"
+        step_hint = "all"
+
+        metadata_source = None
+        test_case_info = state.get("test_case_info") or []
+        if test_case_info:
+            metadata_source = test_case_info[0].get("metadata", {})
         else:
-            return "continue_workflow"
-    
+            metadata_source = {}
 
-    #자동화코드 함수 전용 조건부 엣지 노드
-    def automation_function_decide_to_retry(self, state: GraphState) -> str:
-        """자동화코드 함수 검색 결과에 따라 다음 노드 결정"""
-        print("✅ current node : automation_function_decide_to_retry")
-        code_snippets = state.get("retrieved_code_snippets", [])
-        if not code_snippets:
-            return "retry_automation_function"
-        else:
-            return "generate_code"
-        
-    #자동화코드 함수 전용 조건부 엣지 노드
-    def retry_learn_project(self, state: GraphState) -> str:
-        """사용자 피드백에 따라 추가 학습 또는 코드 생성 결정"""
-        print("✅ current node : retry_learn_project")
-        user_feedback = state.get("user_feedback", "")
+        if metadata_source:
+            issue_key = metadata_source.get("issue_key", issue_key)
+            step_hint = metadata_source.get("step_index", step_hint)
 
-        # 디버깅
-        print(f"🔍 [retry_learn_project] user_feedback: '{user_feedback}' (type: {type(user_feedback)})")
+        if issue_key == "UNKNOWN":
+            import re
+            match = re.search(r'(COMMONR-\d+)', query)
+            if match:
+                issue_key = match.group(1)
+        if step_hint == "all" and issue_key != "UNKNOWN":
+            import re
+            match = re.search(r'스텝\s*(\d+)', query)
+            if match:
+                step_hint = match.group(1)
 
-        # 빈 문자열이거나 None이면 코드 생성으로
-        if not user_feedback or user_feedback.strip() == "":
-            print("🔍 [retry_learn_project] → generate_code (기존 지식 사용)")
-            return "generate_code"
-        else:
-            print("🔍 [retry_learn_project] → additional_learn (추가 학습)")
-            return "additional_learn"
-    
-    
-    # 3. 그래프 빌드 메서드
+        return {
+            "issue_key": issue_key,
+            "step_hint": str(step_hint),
+        }
+
+    def _clean_generated_code(self, code: str) -> str:
+        """Markdown 코드 블록을 제거하고 양끝 공백 정리"""
+        import re
+
+        cleaned = re.sub(r'^```python\s*\n', '', code.strip(), flags=re.IGNORECASE)
+        cleaned = re.sub(r'```$', '', cleaned.strip())
+        return cleaned.strip()
+
+    def _persist_generated_code(self, code: str, artifact: Dict[str, str]) -> str:
+        """생성된 코드를 파일로 저장하고 경로 반환"""
+        output_dir = Path(__file__).parent.parent / "generated_codes"
+        output_dir.mkdir(exist_ok=True)
+
+        issue_key = artifact.get("issue_key", "UNKNOWN")
+        issue_number = issue_key.split('-')[-1] if '-' in issue_key else issue_key
+        step_hint = artifact.get("step_hint", "all")
+        filename = f"testCOMMONR_{issue_number}_{step_hint}.py"
+        file_path = output_dir / filename
+
+        cleaned_code = self._clean_generated_code(code)
+        with open(file_path, 'w', encoding='utf-8') as file:
+            file.write(cleaned_code)
+
+        print(f"✅ 코드 파일 저장: {file_path}")
+        return str(file_path)
+
     def _build_graph(self):
+        """
+        새로운 Phase 구조로 Graph 구성:
+        Phase 0: retrieve_test_case
+        Phase 1: plan_resources
+        Phase 2: generate_base_structure (핵심 3파일 통째로)
+        Phase 3: process_categories (카테고리별 순차 처리)
+        Phase 4: merge_and_validate (통합 + 검증)
+        Phase 5: refine_final (필요시)
+        """
         workflow = StateGraph(GraphState)
 
         # 모든 노드들 추가
-        workflow.add_node("learn_project", self.learn_project_node)
         workflow.add_node("retrieve_test_case", self.testcase_rag_node)
-        workflow.add_node("analyze_testcase", self.analyze_testcase_node)
-        workflow.add_node("compare_knowledge", self.compare_knowledge_node)
-        workflow.add_node("generate_automation_code", self.generate_code_rag_node)
-        workflow.add_node("additional_learn_project", self.additional_learn_project_node)
+        workflow.add_node("plan_resources", self.resource_planner_node)
 
-        # 진입하는 노드 지정
-        workflow.set_entry_point("learn_project")
+        # 새로운 Phase 2-5 노드
+        workflow.add_node("generate_base_structure", self.base_structure_node)
+        workflow.add_node("process_categories", self.category_processor_node)
+        workflow.add_node("merge_and_validate", self.merge_validate_node)
+        workflow.add_node("refine_final", self.refine_node)
 
-        # 그래프 플로우:
-        # 0. 학습 데이터 생성 (없으면 통과)
-        workflow.add_edge("learn_project", "retrieve_test_case")
-        # 1. 테스트케이스 검색
-        workflow.add_edge("retrieve_test_case", "analyze_testcase")
-        # 2. 테스트케이스 분석
-        workflow.add_edge("analyze_testcase", "compare_knowledge")
-        # ✨ 3. 지식 비교 → 사용자 버튼 선택 → 바로 분기
+        # 진입 노드 설정
+        workflow.set_entry_point("retrieve_test_case")
+
+        # 그래프 플로우 (순차)
+        workflow.add_edge("retrieve_test_case", "plan_resources")
+        workflow.add_edge("plan_resources", "generate_base_structure")
+        workflow.add_edge("generate_base_structure", "process_categories")
+        workflow.add_edge("process_categories", "merge_and_validate")
+
+        # 조건부 분기: needs_refinement에 따라
         workflow.add_conditional_edges(
-            "compare_knowledge",
-            self.retry_learn_project,  # 조건 함수 (수정 불필요)
+            "merge_and_validate",
+            lambda state: "refine" if state.get("needs_refinement", False) else "end",
             {
-                "additional_learn": "additional_learn_project",  # missing_knowledge로 증분 학습
-                "generate_code": "generate_automation_code"      # 기존 지식으로 코드 생성
+                "refine": "refine_final",
+                "end": END
             }
         )
-        workflow.add_edge("additional_learn_project", "compare_knowledge")
-        # 5. 코드 생성 (재학습 + 코드 생성)
-        workflow.add_edge("generate_automation_code", END)
+
+        workflow.add_edge("refine_final", END)
 
         return workflow.compile()
-    
-    # run_graph 메서드를 비동기 함수로 변경
+
     async def run_graph(self, query: str) -> GraphState:
+        """사용자 쿼리를 LangGraph에 전달하고 산출물을 정리"""
         print("🚀 LangGraph 실행 시작")
 
-        # ✨ 쿼리 파싱: step_index가 명시되어 있는지 확인
-        import re
-        issue_key_match = re.search(r'(COMMONR-\d+)', query)
-        step_index_match = re.search(r'스텝\s*(\d+)', query)
-
-        if not issue_key_match:
-            print(f"⚠️ 쿼리에서 issue_key를 찾을 수 없습니다: {query}")
-            return []
-
-        issue_key = issue_key_match.group(1)
-        specific_step = step_index_match.group(1) if step_index_match else None
-
-        if specific_step:
-            print(f"🎯 특정 스텝만 생성: {issue_key} 스텝 {specific_step}번")
-        else:
-            print(f"📚 모든 스텝 생성: {issue_key}")
-
-        # ChromaDB에서 직접 검색
-        if specific_step:
-            # 특정 스텝만 검색
-            where_filter = {
-                "$and": [
-                    {"issue_key": {"$eq": issue_key}},
-                    {"step_index": {"$eq": specific_step}}
-                ]
-            }
-        else:
-            # 모든 스텝 검색
-            where_filter = {"issue_key": {"$eq": issue_key}}
-
-        collection = self.testcase_vectorstore.get(where=where_filter)
-
-        if not collection or not collection.get('ids'):
-            print(f"⚠️ {query}에 해당하는 테스트 스텝을 찾을 수 없습니다.")
-            return []
-
-        # 결과를 딕셔너리 형태로 변환
-        testcase_results = []
-        ids = collection.get('ids', [])
-        metadatas = collection.get('metadatas', [])
-
-        for i in range(len(ids)):
-                    metadata = metadatas[i] if i < len(metadatas) else {}
-                    issue_key_meta = metadata.get('issue_key', query)
-                    step_index_meta = metadata.get('step_index', i+1)
-
-                    # 각 스텝에 대한 쿼리 생성
-                    step_query = f"{issue_key_meta}의 스텝 {step_index_meta}번"
-
-                    testcase_results.append({
-                        "query": step_query,  # 재구성된 쿼리 추가
-                        "metadata": metadata,
-                    })
-
-        # step_index로 정렬
-        testcase_results.sort(key=lambda x: int(x['metadata'].get('step_index', 0)))
-        
-        for i in testcase_results :
-            query = i['query']
-            metadata = i['metadata']
-
-            # 메타데이터에서 issue_key와 step_index 추출
-            issue_key = metadata.get('issue_key', 'UNKNOWN')
-            step_index = metadata.get('step_index', '0')
-
-            # COMMONR-21 → 21 추출
-            import re
-            match = re.search(r'COMMONR-(\d+)', issue_key)
-            issue_number = match.group(1) if match else 'UNKNOWN'
-
-            initial_state = {
+        initial_state: GraphState = {
             "original_query": query
-            }
-            # invoke 대신 ainvoke 사용
-            final_state = await self.graph.ainvoke(initial_state)
-            
-            output_dir = "/home/bes/BES_QE_SDK/generated_codes"
-            #폴더가 없으면 생성
-            os.makedirs(output_dir, exist_ok=True)
-            # 파일명 생성: testCOMMONR21_1.py
-            output_file = os.path.join(output_dir, f"testCOMMONR_{issue_number}_{step_index}.py")
-            
-            # 마크다운 코드 블록(```python, ```) 제거
-            cleaned_code = re.sub(r'^```python\s*\n|^```\s*\n|\n```\s*$', '', final_state['final_code'], flags=re.MULTILINE).strip()
-            with open(output_file, 'w', encoding='utf-8') as f:
-                f.write(cleaned_code)
-            print(f"✅ 저장 완료: {output_file}")
-            
-        
+        }
+
+        final_state: GraphState = await self.graph.ainvoke(initial_state)
+
+        generated_code = final_state.get("generated_code")
+        if generated_code:
+            artifact_info = final_state.get("artifact_info") or self._derive_artifact_info(query, final_state)
+            final_state["artifact_info"] = artifact_info
+            file_path = self._persist_generated_code(generated_code, artifact_info)
+            final_state["file_path"] = file_path
+        else:
+            print("⚠️ 생성된 코드가 없습니다.")
+
         print("✅ LangGraph 실행 완료")
         return final_state
-        
+
+
 async def process_query(user_query):
     """
     사용자의 쿼리를 받아 RAG_Graph를 실행하고 결과를 반환하는 함수
     """
     graph_run = RAG_Graph(
-        testcase_db_path="/home/bes/BES_QE_RAG/testcase_rag/testcase_vectordb",
-        automation_db_path="/home/bes/BES_QE_RAG/automation_rag/automation_vectordb",
-        testcase_collection_name="testcase_vectordb",
-        automation_collection_name="test_automation_functions",
+        testcase_db_path="/Users/admin/Documents/2025_project/QE_RAG_COMPANY/QE_RAG_2025/chroma_db",
+        testcase_collection_name="jira_test_cases",
         testcase_embedding_model="intfloat/multilingual-e5-large",
-        automation_embedding_model="BAAI/bge-m3",
         lm_studio_url="http://127.0.0.1:1234/v1",
-        lm_studio_model="qwen/qwen3-coder-30b"
+        lm_studio_model="qwen/qwen3-8b"
     )
 
     final_state = await graph_run.run_graph(user_query)
