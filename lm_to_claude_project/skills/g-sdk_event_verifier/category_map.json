@@ -1,0 +1,622 @@
+{
+  "categories": [
+    {
+      "name": "user",
+      "keywords": ["user", "enroll", "user_id", "userID", "사용자", "등록"],
+      "description": "User management including enrollment, deletion, and retrieval",
+      "proto_file": "demo/biostar/service/user.proto",
+      "pb2_file": "demo/biostar/service/user_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/user_pb2_grpc.py",
+      "example_dir": "demo/example/user",
+      "example_file": "demo/example/user/user.py",
+      "manager_methods": [
+        "getUserIDs", "getUsers", "enrollUsers", "updateUsers", "removeUsers",
+        "getUserStatistic", "getCards", "hashPIN"
+      ]
+    },
+    {
+      "name": "auth",
+      "keywords": ["auth", "authentication", "authmode", "인증", "인증모드"],
+      "description": "Authentication configuration and modes",
+      "proto_file": "demo/biostar/service/auth.proto",
+      "pb2_file": "demo/biostar/service/auth_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/auth_pb2_grpc.py",
+      "example_dir": "demo/example/auth",
+      "example_file": "demo/example/auth/auth.py",
+      "manager_methods": [
+        "getAuthConfig", "setAuthConfig", "isExtendedAuthSupported",
+        "getAuthGroups", "setAuthGroup", "removeAuthGroups"
+      ]
+    },
+    {
+      "name": "finger",
+      "keywords": ["finger", "fingerprint", "biometric", "지문"],
+      "description": "Fingerprint scanning, verification, and configuration",
+      "proto_file": "demo/biostar/service/finger.proto",
+      "pb2_file": "demo/biostar/service/finger_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/finger_pb2_grpc.py",
+      "example_dir": "demo/example/finger",
+      "example_file": "demo/example/finger/finger.py",
+      "manager_methods": [
+        "scanFingerprint", "verifyFingerprint", "getFingerprintConfig",
+        "setFingerprintConfig", "isFingerInputSupported", "detectFingerprint"
+      ]
+    },
+    {
+      "name": "face",
+      "keywords": ["face", "facial", "biometric", "얼굴"],
+      "description": "Face recognition, scanning, and configuration",
+      "proto_file": "demo/biostar/service/face.proto",
+      "pb2_file": "demo/biostar/service/face_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/face_pb2_grpc.py",
+      "example_dir": "demo/example/face",
+      "example_file": "demo/example/face/face.py",
+      "manager_methods": [
+        "scanFace", "extractFace", "normalizeFace", "getFaceConfig",
+        "setFaceConfig", "isFaceInputSupported", "detectFace"
+      ]
+    },
+    {
+      "name": "card",
+      "keywords": ["card", "carddata", "smartcard", "qr", "카드"],
+      "description": "Card management, scanning, blacklist, and configuration",
+      "proto_file": "demo/biostar/service/card.proto",
+      "pb2_file": "demo/biostar/service/card_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/card_pb2_grpc.py",
+      "example_dir": "demo/example/card",
+      "example_file": "demo/example/card/card.py",
+      "manager_methods": [
+        "scanCard", "writeCard", "eraseCard", "getCards", "detectCard",
+        "getCardConfig", "setCardConfig", "getCard1xConfig", "setCard1xConfig",
+        "getQRConfig", "setQRConfig", "getCustomConfig", "setCustomConfig",
+        "getBlacklists", "setBlacklist", "removeBlacklists", "getFacilityCodeConfig", "setFacilityCodeConfig"
+      ]
+    },
+    {
+      "name": "event",
+      "keywords": ["event", "log", "eventcode", "이벤트", "로그"],
+      "description": "Event log retrieval, monitoring, and filtering",
+      "proto_file": "demo/biostar/service/event.proto",
+      "pb2_file": "demo/biostar/service/event_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/event_pb2_grpc.py",
+      "example_dir": "demo/example/event",
+      "example_file": "demo/example/event/event.py",
+      "manager_methods": [
+        "getLog", "getImageLog", "getTNALog", "getJobCodeLog",
+        "clearLog", "monitorLog", "subscribeLog", "getEventDescription",
+        "getImageLogFilter", "setImageLogFilter"
+      ]
+    },
+    {
+      "name": "device",
+      "keywords": ["device", "capability", "deviceinfo", "장치", "디바이스"],
+      "description": "Device information, capability, control, and configuration",
+      "proto_file": "demo/biostar/service/device.proto",
+      "pb2_file": "demo/biostar/service/device_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/device_pb2_grpc.py",
+      "example_dir": "demo/example/device",
+      "example_file": "demo/example/device/device.py",
+      "manager_methods": [
+        "getDeviceInfo", "getDeviceCapability", "getCapabilityInfo", "getDeviceType",
+        "lockDevice", "unlockDevice", "rebootDevice", "resetDevice", "resetConfig",
+        "clearDatabase", "upgradeFirmware", "getHashKey", "setHashKey"
+      ]
+    },
+    {
+      "name": "door",
+      "keywords": ["door", "lock", "unlock", "relay", "도어", "문"],
+      "description": "Door management, lock/unlock control, and status",
+      "proto_file": "demo/biostar/service/door.proto",
+      "pb2_file": "demo/biostar/service/door_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/door_pb2_grpc.py",
+      "example_dir": "demo/example/door",
+      "example_file": "demo/example/door/door.py",
+      "manager_methods": [
+        "getDoors", "setDoor", "removeDoors", "lockDoors", "unlockDoors",
+        "releaseDoors", "setDoorAlarm", "getDoorStatus"
+      ]
+    },
+    {
+      "name": "access",
+      "keywords": ["access", "accessgroup", "accesslevel", "접근권한", "액세스"],
+      "description": "Access control including groups, levels, and floor levels",
+      "proto_file": "demo/biostar/service/access.proto",
+      "pb2_file": "demo/biostar/service/access_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/access_pb2_grpc.py",
+      "example_dir": "demo/example/access",
+      "example_file": "demo/example/access/access.py",
+      "manager_methods": [
+        "getAccessGroups", "setAccessGroup", "removeAccessGroups",
+        "getAccessLevels", "setAccessLevel", "removeAccessLevels",
+        "getFloorLevels", "setFloorLevel", "removeFloorLevels"
+      ]
+    },
+    {
+      "name": "schedule",
+      "keywords": ["schedule", "holidaygroup", "period", "스케줄", "일정"],
+      "description": "Access schedule and holiday group management",
+      "proto_file": "demo/biostar/service/schedule.proto",
+      "pb2_file": "demo/biostar/service/schedule_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/schedule_pb2_grpc.py",
+      "example_dir": "demo/example/schedule",
+      "example_file": "demo/example/schedule/schedule.py",
+      "manager_methods": [
+        "getAccessSchedules", "setAccessSchedule", "removeAccessSchedules",
+        "getHolidayGroups", "setHolidayGroup", "removeHolidayGroups"
+      ]
+    },
+    {
+      "name": "connect",
+      "keywords": ["connect", "disconnect", "connection", "연결"],
+      "description": "Device connection, disconnection, and connection management",
+      "proto_file": "demo/biostar/service/connect.proto",
+      "pb2_file": "demo/biostar/service/connect_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/connect_pb2_grpc.py",
+      "example_dir": "demo/example/connect",
+      "example_file": "demo/example/connect/connect.py",
+      "manager_methods": [
+        "connect", "disconnect", "disconnectAll", "getDeviceList", "getPendingList",
+        "accept", "acceptAll", "reject", "rejectAll", "enableSSL", "disableSSL",
+        "searchDevices", "subscribe", "isRegistered", "isPending"
+      ]
+    },
+    {
+      "name": "connect_master",
+      "keywords": ["master", "gateway", "tenant", "마스터", "게이트웨이"],
+      "description": "Master gateway connection management",
+      "proto_file": "demo/biostar/service/connect_master.proto",
+      "pb2_file": "demo/biostar/service/connect_master_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/connect_master_pb2_grpc.py",
+      "example_dir": "demo/example/connectMaster",
+      "example_file": "demo/example/connectMaster/connectMaster.py",
+      "manager_methods": [
+        "connectMasterGateway", "getDeviceList", "searchDevices"
+      ]
+    },
+    {
+      "name": "rs485",
+      "keywords": ["rs485", "slave", "master", "슬레이브"],
+      "description": "RS485 slave device management",
+      "proto_file": "demo/biostar/service/rs485.proto",
+      "pb2_file": "demo/biostar/service/rs485_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/rs485_pb2_grpc.py",
+      "example_dir": "demo/example/rs485",
+      "example_file": "demo/example/rs485/rs485.py",
+      "manager_methods": [
+        "getSlaveList", "getSlaveTable", "setSlaveInfo", "setSlaveInfos",
+        "setSlaves", "searchSlaves", "isSlave", "getMasterID", "getSlaveInfo",
+        "getRS485Config", "setRS485Config"
+      ]
+    },
+    {
+      "name": "time",
+      "keywords": ["time", "timezone", "dst", "시간", "타임존"],
+      "description": "Device time and DST configuration",
+      "proto_file": "demo/biostar/service/time.proto",
+      "pb2_file": "demo/biostar/service/time_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/time_pb2_grpc.py",
+      "example_dir": "demo/example/time",
+      "example_file": "demo/example/time/time.py",
+      "manager_methods": [
+        "getDeviceTime", "setDeviceTime", "getDstConfig", "setDstConfig"
+      ]
+    },
+    {
+      "name": "network",
+      "keywords": ["network", "ip", "wlan", "wifi", "네트워크"],
+      "description": "Network and IP configuration",
+      "proto_file": "demo/biostar/service/network.proto",
+      "pb2_file": "demo/biostar/service/network_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/network_pb2_grpc.py",
+      "example_dir": "demo/example/network",
+      "example_file": "demo/example/network/network.py",
+      "manager_methods": [
+        "getIPConfig", "setIPConfig", "getWLANConfig", "setWLANConfig"
+      ]
+    },
+    {
+      "name": "udp",
+      "keywords": ["udp", "broadcast", "search"],
+      "description": "UDP device search and IP configuration",
+      "proto_file": "demo/biostar/service/udp.proto",
+      "pb2_file": "demo/biostar/service/udp_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/udp_pb2_grpc.py",
+      "example_dir": "demo/example/udp",
+      "example_file": "demo/example/udp/udp.py",
+      "manager_methods": [
+        "getIPConfigViaUDP", "setIPConfigViaUDP"
+      ]
+    },
+    {
+      "name": "udp_master",
+      "keywords": ["udp", "master", "broadcast"],
+      "description": "UDP operations for master gateway",
+      "proto_file": "demo/biostar/service/udp_master.proto",
+      "pb2_file": "demo/biostar/service/udp_master_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/udp_master_pb2_grpc.py",
+      "example_dir": "demo/example/udpMaster",
+      "example_file": "demo/example/udpMaster/udpMaster.py",
+      "manager_methods": [
+        "getIPConfigViaUDP", "setIPConfigViaUDP"
+      ]
+    },
+    {
+      "name": "apb_zone",
+      "keywords": ["apb", "antipassback", "zone", "구역"],
+      "description": "Anti-passback zone management",
+      "proto_file": "demo/biostar/service/apb_zone.proto",
+      "pb2_file": "demo/biostar/service/apb_zone_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/apb_zone_pb2_grpc.py",
+      "example_dir": "demo/example/apb",
+      "example_file": "demo/example/apb/apb.py",
+      "manager_methods": [
+        "getAPBZones", "setAPBZone", "removeAPBZones", "clearAPBZone",
+        "setAPBZoneAlarm", "getAPBZoneStatus"
+      ]
+    },
+    {
+      "name": "timed_apb_zone",
+      "keywords": ["timedapb", "timed", "apb", "zone"],
+      "description": "Timed anti-passback zone management",
+      "proto_file": "demo/biostar/service/timed_apb_zone.proto",
+      "pb2_file": "demo/biostar/service/timed_apb_zone_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/timed_apb_zone_pb2_grpc.py",
+      "example_dir": "demo/example/apb",
+      "example_file": "demo/example/apb/timedApb.py",
+      "manager_methods": [
+        "getTimedAPBZones", "setTimedAPBZone", "removeTimedAPBZones",
+        "clearTimedAPBZone", "setTimedAPBZoneAlarm", "getTimedAPBZoneStatus"
+      ]
+    },
+    {
+      "name": "lift",
+      "keywords": ["lift", "elevator", "floor", "엘리베이터"],
+      "description": "Lift/elevator control and floor management",
+      "proto_file": "demo/biostar/service/lift.proto",
+      "pb2_file": "demo/biostar/service/lift_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/lift_pb2_grpc.py",
+      "example_dir": "demo/example/lift",
+      "example_file": "demo/example/lift/lift.py",
+      "manager_methods": [
+        "getLifts", "setLift", "removeLifts", "activateFloors", "deactivateFloors",
+        "releaseFloors", "setLiftAlarm", "getLiftStatus"
+      ]
+    },
+    {
+      "name": "fire_zone",
+      "keywords": ["fire", "alarm", "firealarm", "화재"],
+      "description": "Fire alarm zone management",
+      "proto_file": "demo/biostar/service/fire_zone.proto",
+      "pb2_file": "demo/biostar/service/fire_zone_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/fire_zone_pb2_grpc.py",
+      "example_dir": "demo/example/alarm",
+      "example_file": "demo/example/alarm/fireAlarm.py",
+      "manager_methods": [
+        "getFireAlarmZones", "setFireAlarmZone", "removeFireAlarmZones",
+        "setFireAlarmZoneAlarm", "getFireAlarmZoneStatus"
+      ]
+    },
+    {
+      "name": "intrusion_zone",
+      "keywords": ["intrusion", "alarm", "intrusionalarm", "침입"],
+      "description": "Intrusion alarm zone management",
+      "proto_file": "demo/biostar/service/intrusion_zone.proto",
+      "pb2_file": "demo/biostar/service/intrusion_zone_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/intrusion_zone_pb2_grpc.py",
+      "example_dir": "demo/example/alarm",
+      "example_file": "demo/example/alarm/intrusionAlarm.py",
+      "manager_methods": [
+        "getIntrusionAlarmZones", "setIntrusionAlarmZone", "removeIntrusionAlarmZones",
+        "setIntrusionAlarmZoneArm", "setIntrusionAlarmZoneAlarm", "getIntrusionAlarmZoneStatus"
+      ]
+    },
+    {
+      "name": "interlock_zone",
+      "keywords": ["interlock", "zone", "인터락"],
+      "description": "Interlock zone management",
+      "proto_file": "demo/biostar/service/interlock_zone.proto",
+      "pb2_file": "demo/biostar/service/interlock_zone_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/interlock_zone_pb2_grpc.py",
+      "example_dir": "demo/example/lock",
+      "example_file": "demo/example/lock/interLock.py",
+      "manager_methods": [
+        "getInterlockZones", "setInterlockZone", "removeInterlockZones",
+        "setInterlockZoneAlarm", "getInterlockZoneStatus"
+      ]
+    },
+    {
+      "name": "lock_zone",
+      "keywords": ["lock", "scheduledlock", "zone"],
+      "description": "Scheduled lock zone management",
+      "proto_file": "demo/biostar/service/lock_zone.proto",
+      "pb2_file": "demo/biostar/service/lock_zone_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/lock_zone_pb2_grpc.py",
+      "example_dir": "demo/example/lock",
+      "example_file": "demo/example/lock/scheduledLock.py",
+      "manager_methods": [
+        "getScheduledLockZones", "setScheduledLockZone", "removeScheduledLockZones",
+        "setScheduledLockZoneAlarm", "getScheduledLockZoneStatus"
+      ]
+    },
+    {
+      "name": "lift_zone",
+      "keywords": ["liftlock", "elevator", "zone"],
+      "description": "Lift lock zone management",
+      "proto_file": "demo/biostar/service/lift_zone.proto",
+      "pb2_file": "demo/biostar/service/lift_zone_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/lift_zone_pb2_grpc.py",
+      "example_dir": "demo/example/lock",
+      "example_file": "demo/example/lock/liftLock.py",
+      "manager_methods": [
+        "getLiftLockZones", "setLiftLockZone", "removeLiftLockZones",
+        "setLiftLockZoneAlarm", "getLiftLockZoneStatus"
+      ]
+    },
+    {
+      "name": "action",
+      "keywords": ["action", "trigger", "event_action", "액션"],
+      "description": "Trigger/action configuration",
+      "proto_file": "demo/biostar/service/action.proto",
+      "pb2_file": "demo/biostar/service/action_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/action_pb2_grpc.py",
+      "example_dir": "demo/example/action",
+      "example_file": "demo/example/action/action.py",
+      "manager_methods": [
+        "getTriggerConfig", "setTriggerConfig"
+      ]
+    },
+    {
+      "name": "display",
+      "keywords": ["display", "screen", "background", "디스플레이"],
+      "description": "Display and screen configuration",
+      "proto_file": "demo/biostar/service/display.proto",
+      "pb2_file": "demo/biostar/service/display_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/display_pb2_grpc.py",
+      "example_dir": "demo/example/display",
+      "example_file": "demo/example/display/display.py",
+      "manager_methods": [
+        "getDisplayConfig", "setDisplayConfig"
+      ]
+    },
+    {
+      "name": "input",
+      "keywords": ["input", "supervised", "relay", "입력"],
+      "description": "Input port configuration",
+      "proto_file": "demo/biostar/service/input.proto",
+      "pb2_file": "demo/biostar/service/input_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/input_pb2_grpc.py",
+      "example_dir": "demo/example/input",
+      "example_file": "demo/example/input/input.py",
+      "manager_methods": [
+        "getInputConfig", "setInputConfig"
+      ]
+    },
+    {
+      "name": "operator",
+      "keywords": ["operator", "admin", "관리자"],
+      "description": "Operator/administrator management",
+      "proto_file": "demo/biostar/service/operator.proto",
+      "pb2_file": "demo/biostar/service/operator_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/operator_pb2_grpc.py",
+      "example_dir": "demo/example/operator",
+      "example_file": "demo/example/operator/operator.py",
+      "manager_methods": [
+        "getOperators", "setOperator", "removeOperators"
+      ]
+    },
+    {
+      "name": "status",
+      "keywords": ["status", "led", "buzzer", "상태"],
+      "description": "Device status LED and buzzer configuration",
+      "proto_file": "demo/biostar/service/status.proto",
+      "pb2_file": "demo/biostar/service/status_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/status_pb2_grpc.py",
+      "example_dir": "demo/example/status",
+      "example_file": "demo/example/status/status.py",
+      "manager_methods": [
+        "getStatusConfig", "setStatusConfig"
+      ]
+    },
+    {
+      "name": "system",
+      "keywords": ["system", "language", "timezone", "시스템"],
+      "description": "System configuration",
+      "proto_file": "demo/biostar/service/system.proto",
+      "pb2_file": "demo/biostar/service/system_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/system_pb2_grpc.py",
+      "example_dir": "demo/example/system",
+      "example_file": "demo/example/system/system.py",
+      "manager_methods": [
+        "getSystemConfig", "setSystemConfig"
+      ]
+    },
+    {
+      "name": "thermal",
+      "keywords": ["thermal", "temperature", "mask", "체온", "온도"],
+      "description": "Thermal camera and temperature measurement",
+      "proto_file": "demo/biostar/service/thermal.proto",
+      "pb2_file": "demo/biostar/service/thermal_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/thermal_pb2_grpc.py",
+      "example_dir": "demo/example/thermal",
+      "example_file": "demo/example/thermal/thermal.py",
+      "manager_methods": [
+        "getThermalConfig", "setThermalConfig", "isOverlapThermalSupported"
+      ]
+    },
+    {
+      "name": "tna",
+      "keywords": ["tna", "timeandattendance", "jobcode", "근태"],
+      "description": "Time and attendance management",
+      "proto_file": "demo/biostar/service/tna.proto",
+      "pb2_file": "demo/biostar/service/tna_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/tna_pb2_grpc.py",
+      "example_dir": "demo/example/tna",
+      "example_file": "demo/example/tna/tna.py",
+      "manager_methods": [
+        "getTNAConfig", "setTNAConfig", "getTNALog", "getJobCodeLog", "isJobCodeSupported"
+      ]
+    },
+    {
+      "name": "wiegand",
+      "keywords": ["wiegand", "format", "위간드"],
+      "description": "Wiegand format configuration",
+      "proto_file": "demo/biostar/service/wiegand.proto",
+      "pb2_file": "demo/biostar/service/wiegand_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/wiegand_pb2_grpc.py",
+      "example_dir": "demo/example/wiegand",
+      "example_file": "demo/example/wiegand/wiegand.py",
+      "manager_methods": [
+        "getWiegandConfig", "setWiegandConfig"
+      ]
+    },
+    {
+      "name": "voip",
+      "keywords": ["voip", "phone", "call", "음성통화"],
+      "description": "VoIP phone configuration",
+      "proto_file": "demo/biostar/service/voip.proto",
+      "pb2_file": "demo/biostar/service/voip_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/voip_pb2_grpc.py",
+      "example_dir": "demo/example/voip",
+      "example_file": "demo/example/voip/voip.py",
+      "manager_methods": [
+        "getVoIPConfig", "setVoIPConfig"
+      ]
+    },
+    {
+      "name": "rtsp",
+      "keywords": ["rtsp", "video", "streaming", "영상"],
+      "description": "RTSP video streaming configuration",
+      "proto_file": "demo/biostar/service/rtsp.proto",
+      "pb2_file": "demo/biostar/service/rtsp_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/rtsp_pb2_grpc.py",
+      "example_dir": "demo/example/rtsp",
+      "example_file": "demo/example/rtsp/rtsp.py",
+      "manager_methods": [
+        "getRtspConfig", "setRtspConfig"
+      ]
+    },
+    {
+      "name": "test",
+      "keywords": ["test", "simulate", "detect", "테스트"],
+      "description": "Test and simulation functions",
+      "proto_file": "demo/biostar/service/test.proto",
+      "pb2_file": "demo/biostar/service/test_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/test_pb2_grpc.py",
+      "example_dir": "demo/example/test",
+      "example_file": "demo/example/test/test.py",
+      "manager_methods": [
+        "detectCard", "detectFace", "detectFingerprint", "enterKey"
+      ]
+    },
+    {
+      "name": "gateway",
+      "keywords": ["gateway", "master", "게이트웨이"],
+      "description": "Gateway management for master gateway",
+      "proto_file": "demo/biostar/service/gateway.proto",
+      "pb2_file": "demo/biostar/service/gateway_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/gateway_pb2_grpc.py",
+      "example_dir": "demo/example/gateway",
+      "example_file": "demo/example/gateway/gateway.py",
+      "manager_methods": [
+        "getGatewayIDs", "getGatewayInfo", "addGateways", "deleteGateways"
+      ]
+    },
+    {
+      "name": "tenant",
+      "keywords": ["tenant", "multitenancy", "테넌트"],
+      "description": "Tenant management for multi-tenancy",
+      "proto_file": "demo/biostar/service/tenant.proto",
+      "pb2_file": "demo/biostar/service/tenant_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/tenant_pb2_grpc.py",
+      "example_dir": "demo/example/tenant",
+      "example_file": "demo/example/tenant/tenant.py",
+      "manager_methods": [
+        "getTenantIDs", "getTenants", "addTenants", "removeTenants"
+      ]
+    },
+    {
+      "name": "admin",
+      "keywords": ["admin", "certificate", "관리"],
+      "description": "Admin and certificate management",
+      "proto_file": "demo/biostar/service/admin.proto",
+      "pb2_file": "demo/biostar/service/admin_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/admin_pb2_grpc.py",
+      "example_dir": "demo/example/admin",
+      "example_file": "demo/example/admin/admin.py",
+      "manager_methods": []
+    },
+    {
+      "name": "login",
+      "keywords": ["login", "jwt", "token", "로그인"],
+      "description": "Login and authentication for gateway",
+      "proto_file": "demo/biostar/service/login.proto",
+      "pb2_file": "demo/biostar/service/login_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/login_pb2_grpc.py",
+      "example_dir": "demo/example/login",
+      "example_file": "demo/example/login/login.py",
+      "manager_methods": []
+    },
+    {
+      "name": "cert",
+      "keywords": ["certificate", "ssl", "tls", "인증서"],
+      "description": "SSL/TLS certificate management",
+      "proto_file": "demo/biostar/service/cert.proto",
+      "pb2_file": "demo/biostar/service/cert_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/cert_pb2_grpc.py",
+      "example_dir": null,
+      "example_file": null,
+      "manager_methods": []
+    },
+    {
+      "name": "err",
+      "keywords": ["error", "errcode", "에러"],
+      "description": "Error code definitions",
+      "proto_file": "demo/biostar/service/err.proto",
+      "pb2_file": "demo/biostar/service/err_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/err_pb2_grpc.py",
+      "example_dir": "demo/example/err",
+      "example_file": "demo/example/err/err.py",
+      "manager_methods": []
+    },
+    {
+      "name": "server",
+      "keywords": ["server", "gateway", "서버"],
+      "description": "Server configuration for device-to-server mode",
+      "proto_file": "demo/biostar/service/server.proto",
+      "pb2_file": "demo/biostar/service/server_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/server_pb2_grpc.py",
+      "example_dir": "demo/example/server",
+      "example_file": "demo/example/server/server.py",
+      "manager_methods": []
+    },
+    {
+      "name": "zone",
+      "keywords": ["zone", "구역"],
+      "description": "Generic zone definitions",
+      "proto_file": "demo/biostar/service/zone.proto",
+      "pb2_file": "demo/biostar/service/zone_pb2.py",
+      "pb2_grpc_file": "demo/biostar/service/zone_pb2_grpc.py",
+      "example_dir": null,
+      "example_file": null,
+      "manager_methods": []
+    },
+    {
+      "name": "master",
+      "keywords": ["master", "gateway", "connection"],
+      "description": "Master gateway client",
+      "proto_file": null,
+      "pb2_file": null,
+      "pb2_grpc_file": null,
+      "example_dir": "demo/example/master",
+      "example_file": "demo/example/master/master.py",
+      "manager_methods": []
+    }
+  ],
+  "usage_notes": [
+    "LLM이 테스트 요구사항을 분석하여 필요한 카테고리를 자동으로 식별합니다",
+    "keywords를 사용하여 관련 카테고리를 빠르게 찾을 수 있습니다",
+    "각 카테고리의 manager_methods를 참조하여 사용 가능한 API를 확인합니다",
+    "proto_file, pb2_file, example_file 경로를 사용하여 상세 구현을 참조합니다",
+    "여러 카테고리가 필요한 경우 (예: user + auth + event) 조합하여 사용합니다"
+  ]
+}

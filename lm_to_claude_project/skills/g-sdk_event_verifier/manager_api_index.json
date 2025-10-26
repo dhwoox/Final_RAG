@@ -1,0 +1,1602 @@
+{
+  "connection_management": {
+    "description": "Device connection, disconnection, and discovery",
+    "methods": [
+      {
+        "name": "connect",
+        "signature": "connect(connInfo)",
+        "description": "Connect to a device",
+        "returns": "deviceID or None",
+        "categories": ["connect", "connect_master"]
+      },
+      {
+        "name": "disconnect",
+        "signature": "disconnect(devID)",
+        "description": "Disconnect a device",
+        "returns": "bool",
+        "categories": ["connect", "connect_master"]
+      },
+      {
+        "name": "disconnectAll",
+        "signature": "disconnectAll()",
+        "description": "Disconnect all devices",
+        "returns": "None",
+        "categories": ["connect", "connect_master"]
+      },
+      {
+        "name": "getDeviceList",
+        "signature": "getDeviceList()",
+        "description": "Get list of connected devices",
+        "returns": "list[DeviceInfo]",
+        "categories": ["connect", "connect_master"]
+      },
+      {
+        "name": "getPendingList",
+        "signature": "getPendingList()",
+        "description": "Get list of pending devices",
+        "returns": "list[DeviceInfo]",
+        "categories": ["connect", "connect_master"]
+      },
+      {
+        "name": "searchDevices",
+        "signature": "searchDevices(timeout=1000)",
+        "description": "Search for devices in subnet",
+        "returns": "list[DeviceInfo]",
+        "categories": ["connect", "connect_master", "udp"]
+      },
+      {
+        "name": "accept",
+        "signature": "accept(devID)",
+        "description": "Accept a device connection",
+        "returns": "bool",
+        "categories": ["connect", "connect_master"]
+      },
+      {
+        "name": "acceptAll",
+        "signature": "acceptAll()",
+        "description": "Accept all device connections",
+        "returns": "bool",
+        "categories": ["connect", "connect_master"]
+      },
+      {
+        "name": "reject",
+        "signature": "reject(devID)",
+        "description": "Reject a device connection",
+        "returns": "bool",
+        "categories": ["connect", "connect_master"]
+      },
+      {
+        "name": "rejectAll",
+        "signature": "rejectAll()",
+        "description": "Reject all device connections",
+        "returns": "bool",
+        "categories": ["connect", "connect_master"]
+      },
+      {
+        "name": "enableSSL",
+        "signature": "enableSSL(devID)",
+        "description": "Enable SSL for device connection",
+        "returns": "bool",
+        "categories": ["connect", "connect_master"]
+      },
+      {
+        "name": "disableSSL",
+        "signature": "disableSSL(devID)",
+        "description": "Disable SSL for device connection",
+        "returns": "bool",
+        "categories": ["connect", "connect_master"]
+      },
+      {
+        "name": "subscribe",
+        "signature": "subscribe(queueSize)",
+        "description": "Subscribe to connection status events",
+        "returns": "EventChannel",
+        "categories": ["connect", "connect_master"]
+      }
+    ]
+  },
+  "device_information": {
+    "description": "Device information, capability, and status queries",
+    "methods": [
+      {
+        "name": "getDeviceInfo",
+        "signature": "getDeviceInfo(deviceID)",
+        "description": "Get device information",
+        "returns": "DeviceInfo",
+        "categories": ["device"]
+      },
+      {
+        "name": "getDeviceCapability",
+        "signature": "getDeviceCapability(deviceID)",
+        "description": "Get device capability",
+        "returns": "CapabilityInfo",
+        "categories": ["device"]
+      },
+      {
+        "name": "getCapabilityInfo",
+        "signature": "getCapabilityInfo(deviceID)",
+        "description": "Get extended capability info",
+        "returns": "CapabilityInfo",
+        "categories": ["device"]
+      },
+      {
+        "name": "getDeviceType",
+        "signature": "getDeviceType(devID)",
+        "description": "Get device type",
+        "returns": "DeviceType",
+        "categories": ["device"]
+      },
+      {
+        "name": "getDeviceID",
+        "signature": "getDeviceID(devAddr)",
+        "description": "Get device ID from IP address",
+        "returns": "int or None",
+        "categories": ["connect"]
+      },
+      {
+        "name": "isRegistered",
+        "signature": "isRegistered(devID)",
+        "description": "Check if device is registered",
+        "returns": "bool",
+        "categories": ["connect"]
+      },
+      {
+        "name": "isPending",
+        "signature": "isPending(devAddr)",
+        "description": "Check if device is in pending list",
+        "returns": "(bool, deviceID)",
+        "categories": ["connect"]
+      },
+      {
+        "name": "isSlave",
+        "signature": "isSlave(devID)",
+        "description": "Check if device is a slave",
+        "returns": "bool",
+        "categories": ["rs485"]
+      },
+      {
+        "name": "isPanel",
+        "signature": "isPanel(deviceID)",
+        "description": "Check if device is a panel (CS-20/DI-24)",
+        "returns": "bool",
+        "categories": ["device"]
+      },
+      {
+        "name": "isPanelWithType",
+        "signature": "isPanelWithType(deviceType)",
+        "description": "Check if device type is a panel",
+        "returns": "bool",
+        "categories": ["device"]
+      }
+    ]
+  },
+  "capability_checks": {
+    "description": "Feature capability checks",
+    "methods": [
+      {
+        "name": "isGroupMatchingSupported",
+        "signature": "isGroupMatchingSupported(deviceID)",
+        "description": "Check if group matching is supported",
+        "returns": "bool",
+        "categories": ["face"]
+      },
+      {
+        "name": "isOverlapThermalSupported",
+        "signature": "isOverlapThermalSupported(deviceID)",
+        "description": "Check if overlap thermal is supported",
+        "returns": "bool",
+        "categories": ["thermal"]
+      },
+      {
+        "name": "isDynamicROISupported",
+        "signature": "isDynamicROISupported(deviceID)",
+        "description": "Check if dynamic ROI is supported",
+        "returns": "bool",
+        "categories": ["face"]
+      },
+      {
+        "name": "isJobCodeSupported",
+        "signature": "isJobCodeSupported(deviceID)",
+        "description": "Check if job code is supported",
+        "returns": "bool",
+        "categories": ["tna"]
+      },
+      {
+        "name": "isIntelligentPDSupported",
+        "signature": "isIntelligentPDSupported(deviceID)",
+        "description": "Check if intelligent PD is supported",
+        "returns": "bool",
+        "categories": ["finger"]
+      },
+      {
+        "name": "isFaceInputSupported",
+        "signature": "isFaceInputSupported(deviceID)",
+        "description": "Check if face input is supported",
+        "returns": "bool",
+        "categories": ["face"]
+      },
+      {
+        "name": "isFingerInputSupported",
+        "signature": "isFingerInputSupported(deviceID)",
+        "description": "Check if fingerprint input is supported",
+        "returns": "bool",
+        "categories": ["finger"]
+      },
+      {
+        "name": "isExtendedAuthSupported",
+        "signature": "isExtendedAuthSupported(deviceID)",
+        "description": "Check if extended auth mode is supported",
+        "returns": "bool",
+        "categories": ["auth"]
+      }
+    ]
+  },
+  "user_management": {
+    "description": "User enrollment, retrieval, update, and deletion",
+    "methods": [
+      {
+        "name": "getUserIDs",
+        "signature": "getUserIDs(deviceID)",
+        "description": "Get list of user IDs",
+        "returns": "list[str]",
+        "categories": ["user"]
+      },
+      {
+        "name": "getUsers",
+        "signature": "getUsers(deviceID, userIDs=[], mask=USER_MASK_ALL)",
+        "description": "Get user information",
+        "returns": "list[UserInfo]",
+        "categories": ["user"]
+      },
+      {
+        "name": "enrollUsers",
+        "signature": "enrollUsers(deviceID, users)",
+        "description": "Enroll users to device",
+        "returns": "bool",
+        "categories": ["user"]
+      },
+      {
+        "name": "updateUsers",
+        "signature": "updateUsers(deviceID, users)",
+        "description": "Update existing users",
+        "returns": "bool",
+        "categories": ["user"]
+      },
+      {
+        "name": "removeUsers",
+        "signature": "removeUsers(deviceID, userIDs=[])",
+        "description": "Delete users (all if userIDs empty)",
+        "returns": "bool",
+        "categories": ["user"]
+      },
+      {
+        "name": "getUserStatistic",
+        "signature": "getUserStatistic(deviceID)",
+        "description": "Get user statistics",
+        "returns": "UserStatistic",
+        "categories": ["user"]
+      },
+      {
+        "name": "getCards",
+        "signature": "getCards(deviceID, userIDs=[])",
+        "description": "Get user card information",
+        "returns": "list[UserCard]",
+        "categories": ["user", "card"]
+      },
+      {
+        "name": "hashPIN",
+        "signature": "hashPIN(userPIN)",
+        "description": "Hash user PIN",
+        "returns": "bytes",
+        "categories": ["user"]
+      }
+    ]
+  },
+  "authentication": {
+    "description": "Authentication configuration and auth groups",
+    "methods": [
+      {
+        "name": "getAuthConfig",
+        "signature": "getAuthConfig(deviceID)",
+        "description": "Get authentication configuration",
+        "returns": "AuthConfig",
+        "categories": ["auth"]
+      },
+      {
+        "name": "setAuthConfig",
+        "signature": "setAuthConfig(deviceID, config)",
+        "description": "Set authentication configuration",
+        "returns": "bool",
+        "categories": ["auth"]
+      },
+      {
+        "name": "getAuthGroups",
+        "signature": "getAuthGroups(deviceID, groupIDs=[])",
+        "description": "Get auth groups (for group matching)",
+        "returns": "list[AuthGroup]",
+        "categories": ["auth", "face"]
+      },
+      {
+        "name": "setAuthGroup",
+        "signature": "setAuthGroup(deviceID, group)",
+        "description": "Set auth group",
+        "returns": "bool",
+        "categories": ["auth", "face"]
+      },
+      {
+        "name": "removeAuthGroups",
+        "signature": "removeAuthGroups(deviceID, groupIDs=[])",
+        "description": "Remove auth groups",
+        "returns": "bool",
+        "categories": ["auth", "face"]
+      }
+    ]
+  },
+  "biometrics_card": {
+    "description": "Fingerprint, face, and card operations",
+    "methods": [
+      {
+        "name": "scanCard",
+        "signature": "scanCard(deviceID)",
+        "description": "Scan card",
+        "returns": "CardData",
+        "categories": ["card"]
+      },
+      {
+        "name": "writeCard",
+        "signature": "writeCard(deviceID, smartCardData)",
+        "description": "Write smart card",
+        "returns": "bool",
+        "categories": ["card"]
+      },
+      {
+        "name": "eraseCard",
+        "signature": "eraseCard(deviceID)",
+        "description": "Erase smart card",
+        "returns": "bool",
+        "categories": ["card"]
+      },
+      {
+        "name": "scanFingerprint",
+        "signature": "scanFingerprint(deviceID, format, threshold)",
+        "description": "Scan fingerprint",
+        "returns": "FingerData",
+        "categories": ["finger"]
+      },
+      {
+        "name": "verifyFingerprint",
+        "signature": "verifyFingerprint(deviceID, fingerData)",
+        "description": "Verify fingerprint",
+        "returns": "bool",
+        "categories": ["finger"]
+      },
+      {
+        "name": "scanFace",
+        "signature": "scanFace(deviceID, threshold)",
+        "description": "Scan face",
+        "returns": "FaceData",
+        "categories": ["face"]
+      },
+      {
+        "name": "extractFace",
+        "signature": "extractFace(deviceID, imageData, isWarped)",
+        "description": "Extract face template from image",
+        "returns": "FaceData",
+        "categories": ["face"]
+      },
+      {
+        "name": "normalizeFace",
+        "signature": "normalizeFace(deviceID, imageData)",
+        "description": "Normalize face image",
+        "returns": "ImageData",
+        "categories": ["face"]
+      }
+    ]
+  },
+  "test_simulation": {
+    "description": "Test and simulation functions",
+    "methods": [
+      {
+        "name": "detectCard",
+        "signature": "detectCard(deviceID, cardData)",
+        "description": "Simulate card detection",
+        "returns": "bool",
+        "categories": ["test", "card"]
+      },
+      {
+        "name": "detectFace",
+        "signature": "detectFace(deviceID, faceTemplate)",
+        "description": "Simulate face detection",
+        "returns": "bool",
+        "categories": ["test", "face"]
+      },
+      {
+        "name": "detectFingerprint",
+        "signature": "detectFingerprint(deviceID, fingerprintTemplate)",
+        "description": "Simulate fingerprint detection",
+        "returns": "bool",
+        "categories": ["test", "finger"]
+      },
+      {
+        "name": "enterKey",
+        "signature": "enterKey(deviceID, input)",
+        "description": "Simulate key input",
+        "returns": "bool",
+        "categories": ["test"]
+      }
+    ]
+  },
+  "access_control": {
+    "description": "Access groups, levels, and floor levels",
+    "methods": [
+      {
+        "name": "getAccessGroups",
+        "signature": "getAccessGroups(deviceID, groupIDs=[])",
+        "description": "Get access groups",
+        "returns": "list[AccessGroup]",
+        "categories": ["access"]
+      },
+      {
+        "name": "setAccessGroup",
+        "signature": "setAccessGroup(deviceID, group)",
+        "description": "Set access group",
+        "returns": "bool",
+        "categories": ["access"]
+      },
+      {
+        "name": "removeAccessGroups",
+        "signature": "removeAccessGroups(deviceID, groupIDs=[])",
+        "description": "Remove access groups",
+        "returns": "bool",
+        "categories": ["access"]
+      },
+      {
+        "name": "getAccessLevels",
+        "signature": "getAccessLevels(deviceID, levelIDs=[])",
+        "description": "Get access levels",
+        "returns": "list[AccessLevel]",
+        "categories": ["access"]
+      },
+      {
+        "name": "setAccessLevel",
+        "signature": "setAccessLevel(deviceID, level)",
+        "description": "Set access level",
+        "returns": "bool",
+        "categories": ["access"]
+      },
+      {
+        "name": "removeAccessLevels",
+        "signature": "removeAccessLevels(deviceID, levelIDs=[])",
+        "description": "Remove access levels",
+        "returns": "bool",
+        "categories": ["access"]
+      },
+      {
+        "name": "getFloorLevels",
+        "signature": "getFloorLevels(deviceID, levelIDs=[])",
+        "description": "Get floor levels (for lift)",
+        "returns": "list[FloorLevel]",
+        "categories": ["access", "lift"]
+      },
+      {
+        "name": "setFloorLevel",
+        "signature": "setFloorLevel(deviceID, level)",
+        "description": "Set floor level",
+        "returns": "bool",
+        "categories": ["access", "lift"]
+      },
+      {
+        "name": "removeFloorLevels",
+        "signature": "removeFloorLevels(deviceID, levelIDs=[])",
+        "description": "Remove floor levels",
+        "returns": "bool",
+        "categories": ["access", "lift"]
+      }
+    ]
+  },
+  "schedule": {
+    "description": "Access schedules and holiday groups",
+    "methods": [
+      {
+        "name": "getAccessSchedules",
+        "signature": "getAccessSchedules(deviceID, scheduleIDs=[])",
+        "description": "Get access schedules",
+        "returns": "list[Schedule]",
+        "categories": ["schedule"]
+      },
+      {
+        "name": "setAccessSchedule",
+        "signature": "setAccessSchedule(deviceID, schedule)",
+        "description": "Set access schedule",
+        "returns": "bool",
+        "categories": ["schedule"]
+      },
+      {
+        "name": "removeAccessSchedules",
+        "signature": "removeAccessSchedules(deviceID, scheduleIDs=[])",
+        "description": "Remove access schedules",
+        "returns": "bool",
+        "categories": ["schedule"]
+      },
+      {
+        "name": "getHolidayGroups",
+        "signature": "getHolidayGroups(deviceID, groupIDs=[])",
+        "description": "Get holiday groups",
+        "returns": "list[HolidayGroup]",
+        "categories": ["schedule"]
+      },
+      {
+        "name": "setHolidayGroup",
+        "signature": "setHolidayGroup(deviceID, group)",
+        "description": "Set holiday group",
+        "returns": "bool",
+        "categories": ["schedule"]
+      },
+      {
+        "name": "removeHolidayGroups",
+        "signature": "removeHolidayGroups(deviceID, groupIDs=[])",
+        "description": "Remove holiday groups",
+        "returns": "bool",
+        "categories": ["schedule"]
+      }
+    ]
+  },
+  "door_control": {
+    "description": "Door management and control",
+    "methods": [
+      {
+        "name": "getDoors",
+        "signature": "getDoors(deviceID, doorIDs=[])",
+        "description": "Get door configurations",
+        "returns": "list[Door]",
+        "categories": ["door"]
+      },
+      {
+        "name": "setDoor",
+        "signature": "setDoor(deviceID, door)",
+        "description": "Set door configuration",
+        "returns": "bool",
+        "categories": ["door"]
+      },
+      {
+        "name": "removeDoors",
+        "signature": "removeDoors(deviceID, doorIDs=[])",
+        "description": "Remove doors",
+        "returns": "bool",
+        "categories": ["door"]
+      },
+      {
+        "name": "lockDoors",
+        "signature": "lockDoors(deviceID, doorIDs, flag=OPERATOR)",
+        "description": "Lock doors",
+        "returns": "bool",
+        "categories": ["door"]
+      },
+      {
+        "name": "unlockDoors",
+        "signature": "unlockDoors(deviceID, doorIDs, flag=OPERATOR)",
+        "description": "Unlock doors",
+        "returns": "bool",
+        "categories": ["door"]
+      },
+      {
+        "name": "releaseDoors",
+        "signature": "releaseDoors(deviceID, doorIDs, flag=OPERATOR)",
+        "description": "Release doors",
+        "returns": "bool",
+        "categories": ["door"]
+      },
+      {
+        "name": "setDoorAlarm",
+        "signature": "setDoorAlarm(deviceID, doorIDs, flag)",
+        "description": "Set door alarm",
+        "returns": "bool",
+        "categories": ["door"]
+      },
+      {
+        "name": "getDoorStatus",
+        "signature": "getDoorStatus(deviceID, doorIDs=[])",
+        "description": "Get door status",
+        "returns": "list[DoorStatus]",
+        "categories": ["door"]
+      }
+    ]
+  },
+  "lift_control": {
+    "description": "Lift/elevator control",
+    "methods": [
+      {
+        "name": "getLifts",
+        "signature": "getLifts(deviceID, liftIDs=[])",
+        "description": "Get lift configurations",
+        "returns": "list[Lift]",
+        "categories": ["lift"]
+      },
+      {
+        "name": "setLift",
+        "signature": "setLift(deviceID, lift)",
+        "description": "Set lift configuration",
+        "returns": "bool",
+        "categories": ["lift"]
+      },
+      {
+        "name": "removeLifts",
+        "signature": "removeLifts(deviceID, liftIDs=[])",
+        "description": "Remove lifts",
+        "returns": "bool",
+        "categories": ["lift"]
+      },
+      {
+        "name": "activateFloors",
+        "signature": "activateFloors(deviceID, liftID, floorIndices=[], flag=OPERATOR)",
+        "description": "Activate floors",
+        "returns": "bool",
+        "categories": ["lift"]
+      },
+      {
+        "name": "deactivateFloors",
+        "signature": "deactivateFloors(deviceID, liftID, floorIndices=[], flag=OPERATOR)",
+        "description": "Deactivate floors",
+        "returns": "bool",
+        "categories": ["lift"]
+      },
+      {
+        "name": "releaseFloors",
+        "signature": "releaseFloors(deviceID, liftID, floorIndices=[], flag=OPERATOR)",
+        "description": "Release floors",
+        "returns": "bool",
+        "categories": ["lift"]
+      },
+      {
+        "name": "setLiftAlarm",
+        "signature": "setLiftAlarm(deviceID, liftIDs, flag)",
+        "description": "Set lift alarm",
+        "returns": "bool",
+        "categories": ["lift"]
+      },
+      {
+        "name": "getLiftStatus",
+        "signature": "getLiftStatus(deviceID, liftIDs=[])",
+        "description": "Get lift status",
+        "returns": "list[LiftStatus]",
+        "categories": ["lift"]
+      }
+    ]
+  },
+  "zones": {
+    "description": "Zone management (APB, Timed APB, Fire, Intrusion, Interlock, Lock, Lift Lock)",
+    "methods": [
+      {
+        "name": "getAPBZones",
+        "signature": "getAPBZones(deviceID, zoneIDs=[])",
+        "description": "Get APB zones",
+        "returns": "list[APBZone]",
+        "categories": ["apb_zone"]
+      },
+      {
+        "name": "setAPBZone",
+        "signature": "setAPBZone(deviceID, zone)",
+        "description": "Set APB zone",
+        "returns": "bool",
+        "categories": ["apb_zone"]
+      },
+      {
+        "name": "removeAPBZones",
+        "signature": "removeAPBZones(deviceID, zoneIDs=[])",
+        "description": "Remove APB zones",
+        "returns": "bool",
+        "categories": ["apb_zone"]
+      },
+      {
+        "name": "clearAPBZone",
+        "signature": "clearAPBZone(deviceID, zoneID, userIDs=[])",
+        "description": "Clear APB zone violations",
+        "returns": "bool",
+        "categories": ["apb_zone"]
+      },
+      {
+        "name": "setAPBZoneAlarm",
+        "signature": "setAPBZoneAlarm(deviceID, zoneIDs, alarmed)",
+        "description": "Set APB zone alarm",
+        "returns": "bool",
+        "categories": ["apb_zone"]
+      },
+      {
+        "name": "getAPBZoneStatus",
+        "signature": "getAPBZoneStatus(deviceID, zoneIDs=[])",
+        "description": "Get APB zone status",
+        "returns": "list[APBZoneStatus]",
+        "categories": ["apb_zone"]
+      },
+      {
+        "name": "getTimedAPBZones",
+        "signature": "getTimedAPBZones(deviceID, zoneIDs=[])",
+        "description": "Get timed APB zones",
+        "returns": "list[TimedAPBZone]",
+        "categories": ["timed_apb_zone"]
+      },
+      {
+        "name": "setTimedAPBZone",
+        "signature": "setTimedAPBZone(deviceID, zone)",
+        "description": "Set timed APB zone",
+        "returns": "bool",
+        "categories": ["timed_apb_zone"]
+      },
+      {
+        "name": "removeTimedAPBZones",
+        "signature": "removeTimedAPBZones(deviceID, zoneIDs=[])",
+        "description": "Remove timed APB zones",
+        "returns": "bool",
+        "categories": ["timed_apb_zone"]
+      },
+      {
+        "name": "clearTimedAPBZone",
+        "signature": "clearTimedAPBZone(deviceID, zoneID, userIDs=[])",
+        "description": "Clear timed APB zone violations",
+        "returns": "bool",
+        "categories": ["timed_apb_zone"]
+      },
+      {
+        "name": "setTimedAPBZoneAlarm",
+        "signature": "setTimedAPBZoneAlarm(deviceID, zoneIDs, alarmed)",
+        "description": "Set timed APB zone alarm",
+        "returns": "bool",
+        "categories": ["timed_apb_zone"]
+      },
+      {
+        "name": "getTimedAPBZoneStatus",
+        "signature": "getTimedAPBZoneStatus(deviceID, zoneIDs=[])",
+        "description": "Get timed APB zone status",
+        "returns": "list[TimedAPBZoneStatus]",
+        "categories": ["timed_apb_zone"]
+      },
+      {
+        "name": "getFireAlarmZones",
+        "signature": "getFireAlarmZones(deviceID, zoneIDs=[])",
+        "description": "Get fire alarm zones",
+        "returns": "list[FireAlarmZone]",
+        "categories": ["fire_zone"]
+      },
+      {
+        "name": "setFireAlarmZone",
+        "signature": "setFireAlarmZone(deviceID, zone)",
+        "description": "Set fire alarm zone",
+        "returns": "bool",
+        "categories": ["fire_zone"]
+      },
+      {
+        "name": "removeFireAlarmZones",
+        "signature": "removeFireAlarmZones(deviceID, zoneIDs=[])",
+        "description": "Remove fire alarm zones",
+        "returns": "bool",
+        "categories": ["fire_zone"]
+      },
+      {
+        "name": "setFireAlarmZoneAlarm",
+        "signature": "setFireAlarmZoneAlarm(deviceID, zoneIDs, alarmed)",
+        "description": "Set fire alarm zone alarm",
+        "returns": "bool",
+        "categories": ["fire_zone"]
+      },
+      {
+        "name": "getFireAlarmZoneStatus",
+        "signature": "getFireAlarmZoneStatus(deviceID, zoneIDs=[])",
+        "description": "Get fire alarm zone status",
+        "returns": "list[FireAlarmZoneStatus]",
+        "categories": ["fire_zone"]
+      },
+      {
+        "name": "getIntrusionAlarmZones",
+        "signature": "getIntrusionAlarmZones(deviceID, zoneIDs=[])",
+        "description": "Get intrusion alarm zones",
+        "returns": "list[IntrusionAlarmZone]",
+        "categories": ["intrusion_zone"]
+      },
+      {
+        "name": "setIntrusionAlarmZone",
+        "signature": "setIntrusionAlarmZone(deviceID, zone)",
+        "description": "Set intrusion alarm zone",
+        "returns": "bool",
+        "categories": ["intrusion_zone"]
+      },
+      {
+        "name": "removeIntrusionAlarmZones",
+        "signature": "removeIntrusionAlarmZones(deviceID, zoneIDs=[])",
+        "description": "Remove intrusion alarm zones",
+        "returns": "bool",
+        "categories": ["intrusion_zone"]
+      },
+      {
+        "name": "setIntrusionAlarmZoneArm",
+        "signature": "setIntrusionAlarmZoneArm(deviceID, zoneIDs, armed)",
+        "description": "Arm/disarm intrusion alarm zone",
+        "returns": "bool",
+        "categories": ["intrusion_zone"]
+      },
+      {
+        "name": "setIntrusionAlarmZoneAlarm",
+        "signature": "setIntrusionAlarmZoneAlarm(deviceID, zoneIDs, alarmed)",
+        "description": "Set intrusion alarm zone alarm",
+        "returns": "bool",
+        "categories": ["intrusion_zone"]
+      },
+      {
+        "name": "getIntrusionAlarmZoneStatus",
+        "signature": "getIntrusionAlarmZoneStatus(deviceID, zoneIDs=[])",
+        "description": "Get intrusion alarm zone status",
+        "returns": "list[IntrusionAlarmZoneStatus]",
+        "categories": ["intrusion_zone"]
+      },
+      {
+        "name": "getInterlockZones",
+        "signature": "getInterlockZones(deviceID, zoneIDs=[])",
+        "description": "Get interlock zones",
+        "returns": "list[InterlockZone]",
+        "categories": ["interlock_zone"]
+      },
+      {
+        "name": "setInterlockZone",
+        "signature": "setInterlockZone(deviceID, zone)",
+        "description": "Set interlock zone",
+        "returns": "bool",
+        "categories": ["interlock_zone"]
+      },
+      {
+        "name": "removeInterlockZones",
+        "signature": "removeInterlockZones(deviceID, zoneIDs=[])",
+        "description": "Remove interlock zones",
+        "returns": "bool",
+        "categories": ["interlock_zone"]
+      },
+      {
+        "name": "setInterlockZoneAlarm",
+        "signature": "setInterlockZoneAlarm(deviceID, zoneIDs, alarmed)",
+        "description": "Set interlock zone alarm",
+        "returns": "bool",
+        "categories": ["interlock_zone"]
+      },
+      {
+        "name": "getInterlockZoneStatus",
+        "signature": "getInterlockZoneStatus(deviceID, zoneIDs=[])",
+        "description": "Get interlock zone status",
+        "returns": "list[InterlockZoneStatus]",
+        "categories": ["interlock_zone"]
+      },
+      {
+        "name": "getScheduledLockZones",
+        "signature": "getScheduledLockZones(deviceID, zoneIDs=[])",
+        "description": "Get scheduled lock zones",
+        "returns": "list[ScheduledLockZone]",
+        "categories": ["lock_zone"]
+      },
+      {
+        "name": "setScheduledLockZone",
+        "signature": "setScheduledLockZone(deviceID, zone)",
+        "description": "Set scheduled lock zone",
+        "returns": "bool",
+        "categories": ["lock_zone"]
+      },
+      {
+        "name": "removeScheduledLockZones",
+        "signature": "removeScheduledLockZones(deviceID, zoneIDs=[])",
+        "description": "Remove scheduled lock zones",
+        "returns": "bool",
+        "categories": ["lock_zone"]
+      },
+      {
+        "name": "setScheduledLockZoneAlarm",
+        "signature": "setScheduledLockZoneAlarm(deviceID, zoneIDs, alarmed)",
+        "description": "Set scheduled lock zone alarm",
+        "returns": "bool",
+        "categories": ["lock_zone"]
+      },
+      {
+        "name": "getScheduledLockZoneStatus",
+        "signature": "getScheduledLockZoneStatus(deviceID, zoneIDs=[])",
+        "description": "Get scheduled lock zone status",
+        "returns": "list[ScheduledLockZoneStatus]",
+        "categories": ["lock_zone"]
+      },
+      {
+        "name": "getLiftLockZones",
+        "signature": "getLiftLockZones(deviceID, zoneIDs=[])",
+        "description": "Get lift lock zones",
+        "returns": "list[LiftLockZone]",
+        "categories": ["lift_zone"]
+      },
+      {
+        "name": "setLiftLockZone",
+        "signature": "setLiftLockZone(deviceID, zone)",
+        "description": "Set lift lock zone",
+        "returns": "bool",
+        "categories": ["lift_zone"]
+      },
+      {
+        "name": "removeLiftLockZones",
+        "signature": "removeLiftLockZones(deviceID, zoneIDs=[])",
+        "description": "Remove lift lock zones",
+        "returns": "bool",
+        "categories": ["lift_zone"]
+      },
+      {
+        "name": "setLiftLockZoneAlarm",
+        "signature": "setLiftLockZoneAlarm(deviceID, zoneIDs, alarmed)",
+        "description": "Set lift lock zone alarm",
+        "returns": "bool",
+        "categories": ["lift_zone"]
+      },
+      {
+        "name": "getLiftLockZoneStatus",
+        "signature": "getLiftLockZoneStatus(deviceID, zoneIDs=[])",
+        "description": "Get lift lock zone status",
+        "returns": "list[LiftLockZoneStatus]",
+        "categories": ["lift_zone"]
+      }
+    ]
+  },
+  "event_log": {
+    "description": "Event log retrieval, monitoring, and filtering",
+    "methods": [
+      {
+        "name": "getLog",
+        "signature": "getLog(deviceID, first=0, count=0, filters=[])",
+        "description": "Get event logs",
+        "returns": "list[EventLog]",
+        "categories": ["event"]
+      },
+      {
+        "name": "getImageLog",
+        "signature": "getImageLog(deviceID, first=0, count=0)",
+        "description": "Get image logs",
+        "returns": "list[ImageLog]",
+        "categories": ["event"]
+      },
+      {
+        "name": "getTNALog",
+        "signature": "getTNALog(deviceID, first=0, count=0)",
+        "description": "Get T&A logs",
+        "returns": "list[TNALog]",
+        "categories": ["event", "tna"]
+      },
+      {
+        "name": "getJobCodeLog",
+        "signature": "getJobCodeLog(deviceID, first=0, count=0)",
+        "description": "Get job code logs",
+        "returns": "list[JobCodeLog]",
+        "categories": ["event", "tna"]
+      },
+      {
+        "name": "clearLog",
+        "signature": "clearLog(deviceID)",
+        "description": "Clear all event logs",
+        "returns": "None",
+        "categories": ["event"]
+      },
+      {
+        "name": "monitorLog",
+        "signature": "monitorLog(deviceID, enable=True)",
+        "description": "Enable/disable event monitoring",
+        "returns": "None",
+        "categories": ["event"]
+      },
+      {
+        "name": "subscribeLog",
+        "signature": "subscribeLog(queueSize)",
+        "description": "Subscribe to event logs",
+        "returns": "EventChannel",
+        "categories": ["event"]
+      },
+      {
+        "name": "getEventDescription",
+        "signature": "getEventDescription(eventCode)",
+        "description": "Get event code description",
+        "returns": "str",
+        "categories": ["event"]
+      },
+      {
+        "name": "getImageLogFilter",
+        "signature": "getImageLogFilter(deviceID)",
+        "description": "Get image log filter",
+        "returns": "ImageLogFilter",
+        "categories": ["event"]
+      },
+      {
+        "name": "setImageLogFilter",
+        "signature": "setImageLogFilter(deviceID, filters)",
+        "description": "Set image log filter",
+        "returns": "None",
+        "categories": ["event"]
+      }
+    ]
+  },
+  "device_configuration": {
+    "description": "Device configuration (auth, card, display, fingerprint, face, etc.)",
+    "methods": [
+      {
+        "name": "getCardConfig",
+        "signature": "getCardConfig(deviceID)",
+        "description": "Get card configuration",
+        "returns": "CardConfig",
+        "categories": ["card"]
+      },
+      {
+        "name": "setCardConfig",
+        "signature": "setCardConfig(deviceID, config)",
+        "description": "Set card configuration",
+        "returns": "bool",
+        "categories": ["card"]
+      },
+      {
+        "name": "getCard1xConfig",
+        "signature": "getCard1xConfig(deviceID)",
+        "description": "Get 1X card configuration",
+        "returns": "Card1xConfig",
+        "categories": ["card"]
+      },
+      {
+        "name": "setCard1xConfig",
+        "signature": "setCard1xConfig(deviceID, config)",
+        "description": "Set 1X card configuration",
+        "returns": "bool",
+        "categories": ["card"]
+      },
+      {
+        "name": "getQRConfig",
+        "signature": "getQRConfig(deviceID)",
+        "description": "Get QR configuration",
+        "returns": "QRConfig",
+        "categories": ["card"]
+      },
+      {
+        "name": "setQRConfig",
+        "signature": "setQRConfig(deviceID, config)",
+        "description": "Set QR configuration",
+        "returns": "bool",
+        "categories": ["card"]
+      },
+      {
+        "name": "getCustomConfig",
+        "signature": "getCustomConfig(deviceID)",
+        "description": "Get custom smart card configuration",
+        "returns": "CustomConfig",
+        "categories": ["card"]
+      },
+      {
+        "name": "setCustomConfig",
+        "signature": "setCustomConfig(deviceID, config)",
+        "description": "Set custom smart card configuration",
+        "returns": "bool",
+        "categories": ["card"]
+      },
+      {
+        "name": "getFacilityCodeConfig",
+        "signature": "getFacilityCodeConfig(deviceID)",
+        "description": "Get facility code configuration",
+        "returns": "FacilityCodeConfig",
+        "categories": ["card"]
+      },
+      {
+        "name": "setFacilityCodeConfig",
+        "signature": "setFacilityCodeConfig(deviceID, config)",
+        "description": "Set facility code configuration",
+        "returns": "bool",
+        "categories": ["card"]
+      },
+      {
+        "name": "getDisplayConfig",
+        "signature": "getDisplayConfig(deviceID)",
+        "description": "Get display configuration",
+        "returns": "DisplayConfig",
+        "categories": ["display"]
+      },
+      {
+        "name": "setDisplayConfig",
+        "signature": "setDisplayConfig(deviceID, config)",
+        "description": "Set display configuration",
+        "returns": "bool",
+        "categories": ["display"]
+      },
+      {
+        "name": "getDstConfig",
+        "signature": "getDstConfig(deviceID)",
+        "description": "Get DST configuration",
+        "returns": "DSTConfig",
+        "categories": ["time"]
+      },
+      {
+        "name": "setDstConfig",
+        "signature": "setDstConfig(deviceID, config)",
+        "description": "Set DST configuration",
+        "returns": "bool",
+        "categories": ["time"]
+      },
+      {
+        "name": "getFaceConfig",
+        "signature": "getFaceConfig(deviceID)",
+        "description": "Get face configuration",
+        "returns": "FaceConfig",
+        "categories": ["face"]
+      },
+      {
+        "name": "setFaceConfig",
+        "signature": "setFaceConfig(deviceID, config)",
+        "description": "Set face configuration",
+        "returns": "bool",
+        "categories": ["face"]
+      },
+      {
+        "name": "getFingerprintConfig",
+        "signature": "getFingerprintConfig(deviceID)",
+        "description": "Get fingerprint configuration",
+        "returns": "FingerprintConfig",
+        "categories": ["finger"]
+      },
+      {
+        "name": "setFingerprintConfig",
+        "signature": "setFingerprintConfig(deviceID, config)",
+        "description": "Set fingerprint configuration",
+        "returns": "bool",
+        "categories": ["finger"]
+      },
+      {
+        "name": "getInputConfig",
+        "signature": "getInputConfig(deviceID)",
+        "description": "Get input configuration",
+        "returns": "InputConfig",
+        "categories": ["input"]
+      },
+      {
+        "name": "setInputConfig",
+        "signature": "setInputConfig(deviceID, config)",
+        "description": "Set input configuration",
+        "returns": "bool",
+        "categories": ["input"]
+      },
+      {
+        "name": "getIPConfig",
+        "signature": "getIPConfig(deviceID)",
+        "description": "Get IP configuration",
+        "returns": "IPConfig",
+        "categories": ["network"]
+      },
+      {
+        "name": "setIPConfig",
+        "signature": "setIPConfig(deviceID, config)",
+        "description": "Set IP configuration",
+        "returns": "bool",
+        "categories": ["network"]
+      },
+      {
+        "name": "getIPConfigViaUDP",
+        "signature": "getIPConfigViaUDP(devInfo)",
+        "description": "Get IP configuration via UDP",
+        "returns": "IPConfig",
+        "categories": ["udp", "network"]
+      },
+      {
+        "name": "setIPConfigViaUDP",
+        "signature": "setIPConfigViaUDP(devInfo, config)",
+        "description": "Set IP configuration via UDP",
+        "returns": "bool",
+        "categories": ["udp", "network"]
+      },
+      {
+        "name": "getRS485Config",
+        "signature": "getRS485Config(deviceID)",
+        "description": "Get RS485 configuration",
+        "returns": "RS485Config",
+        "categories": ["rs485"]
+      },
+      {
+        "name": "setRS485Config",
+        "signature": "setRS485Config(deviceID, config)",
+        "description": "Set RS485 configuration",
+        "returns": "bool",
+        "categories": ["rs485"]
+      },
+      {
+        "name": "getRtspConfig",
+        "signature": "getRtspConfig(deviceID)",
+        "description": "Get RTSP configuration",
+        "returns": "RtspConfig",
+        "categories": ["rtsp"]
+      },
+      {
+        "name": "setRtspConfig",
+        "signature": "setRtspConfig(deviceID, config)",
+        "description": "Set RTSP configuration",
+        "returns": "bool",
+        "categories": ["rtsp"]
+      },
+      {
+        "name": "getStatusConfig",
+        "signature": "getStatusConfig(deviceID)",
+        "description": "Get status configuration",
+        "returns": "StatusConfig",
+        "categories": ["status"]
+      },
+      {
+        "name": "setStatusConfig",
+        "signature": "setStatusConfig(deviceID, config)",
+        "description": "Set status configuration",
+        "returns": "bool",
+        "categories": ["status"]
+      },
+      {
+        "name": "getSystemConfig",
+        "signature": "getSystemConfig(deviceID)",
+        "description": "Get system configuration",
+        "returns": "SystemConfig",
+        "categories": ["system"]
+      },
+      {
+        "name": "setSystemConfig",
+        "signature": "setSystemConfig(deviceID, config)",
+        "description": "Set system configuration",
+        "returns": "bool",
+        "categories": ["system"]
+      },
+      {
+        "name": "getThermalConfig",
+        "signature": "getThermalConfig(deviceID)",
+        "description": "Get thermal configuration",
+        "returns": "ThermalConfig",
+        "categories": ["thermal"]
+      },
+      {
+        "name": "setThermalConfig",
+        "signature": "setThermalConfig(deviceID, config)",
+        "description": "Set thermal configuration",
+        "returns": "bool",
+        "categories": ["thermal"]
+      },
+      {
+        "name": "getTNAConfig",
+        "signature": "getTNAConfig(deviceID)",
+        "description": "Get T&A configuration",
+        "returns": "TNAConfig",
+        "categories": ["tna"]
+      },
+      {
+        "name": "setTNAConfig",
+        "signature": "setTNAConfig(deviceID, config)",
+        "description": "Set T&A configuration",
+        "returns": "bool",
+        "categories": ["tna"]
+      },
+      {
+        "name": "getVoIPConfig",
+        "signature": "getVoIPConfig(deviceID)",
+        "description": "Get VoIP configuration",
+        "returns": "VoIPConfig",
+        "categories": ["voip"]
+      },
+      {
+        "name": "setVoIPConfig",
+        "signature": "setVoIPConfig(deviceID, config)",
+        "description": "Set VoIP configuration",
+        "returns": "bool",
+        "categories": ["voip"]
+      },
+      {
+        "name": "getWiegandConfig",
+        "signature": "getWiegandConfig(deviceID)",
+        "description": "Get Wiegand configuration",
+        "returns": "WiegandConfig",
+        "categories": ["wiegand"]
+      },
+      {
+        "name": "setWiegandConfig",
+        "signature": "setWiegandConfig(deviceID, config)",
+        "description": "Set Wiegand configuration",
+        "returns": "bool",
+        "categories": ["wiegand"]
+      },
+      {
+        "name": "getWLANConfig",
+        "signature": "getWLANConfig(deviceID)",
+        "description": "Get WLAN configuration",
+        "returns": "WLANConfig",
+        "categories": ["network"]
+      },
+      {
+        "name": "setWLANConfig",
+        "signature": "setWLANConfig(deviceID, config)",
+        "description": "Set WLAN configuration",
+        "returns": "bool",
+        "categories": ["network"]
+      },
+      {
+        "name": "getTriggerConfig",
+        "signature": "getTriggerConfig(deviceID)",
+        "description": "Get trigger/action configuration",
+        "returns": "TriggerConfig",
+        "categories": ["action"]
+      },
+      {
+        "name": "setTriggerConfig",
+        "signature": "setTriggerConfig(deviceID, config)",
+        "description": "Set trigger/action configuration",
+        "returns": "bool",
+        "categories": ["action"]
+      }
+    ]
+  },
+  "device_control": {
+    "description": "Device control operations (lock, unlock, reboot, reset, etc.)",
+    "methods": [
+      {
+        "name": "getDeviceTime",
+        "signature": "getDeviceTime(deviceID)",
+        "description": "Get device time",
+        "returns": "int (timestamp)",
+        "categories": ["time"]
+      },
+      {
+        "name": "setDeviceTime",
+        "signature": "setDeviceTime(deviceID, timestamp)",
+        "description": "Set device time",
+        "returns": "bool",
+        "categories": ["time"]
+      },
+      {
+        "name": "lockDevice",
+        "signature": "lockDevice(deviceID)",
+        "description": "Lock device",
+        "returns": "bool",
+        "categories": ["device"]
+      },
+      {
+        "name": "unlockDevice",
+        "signature": "unlockDevice(deviceID)",
+        "description": "Unlock device",
+        "returns": "bool",
+        "categories": ["device"]
+      },
+      {
+        "name": "rebootDevice",
+        "signature": "rebootDevice(deviceID)",
+        "description": "Reboot device",
+        "returns": "bool",
+        "categories": ["device"]
+      },
+      {
+        "name": "resetDevice",
+        "signature": "resetDevice(deviceID)",
+        "description": "Factory reset device",
+        "returns": "bool",
+        "categories": ["device"]
+      },
+      {
+        "name": "resetConfig",
+        "signature": "resetConfig(deviceID, withNetwork=False, withDB=False)",
+        "description": "Reset device configuration",
+        "returns": "bool",
+        "categories": ["device"]
+      },
+      {
+        "name": "clearDatabase",
+        "signature": "clearDatabase(deviceID)",
+        "description": "Clear device database",
+        "returns": "bool",
+        "categories": ["device"]
+      },
+      {
+        "name": "upgradeFirmware",
+        "signature": "upgradeFirmware(deviceID, file)",
+        "description": "Upgrade device firmware",
+        "returns": "bool",
+        "categories": ["device"]
+      },
+      {
+        "name": "getHashKey",
+        "signature": "getHashKey(deviceID)",
+        "description": "Get device hash key",
+        "returns": "(key, isDefault)",
+        "categories": ["device"]
+      },
+      {
+        "name": "setHashKey",
+        "signature": "setHashKey(deviceID, setDefault, hashKey)",
+        "description": "Set device hash key",
+        "returns": "bool",
+        "categories": ["device"]
+      }
+    ]
+  },
+  "rs485_slave": {
+    "description": "RS485 slave device management",
+    "methods": [
+      {
+        "name": "getSlaveList",
+        "signature": "getSlaveList(masterID)",
+        "description": "Get slave device list",
+        "returns": "list[SlaveDeviceInfo]",
+        "categories": ["rs485"]
+      },
+      {
+        "name": "getSlaveTable",
+        "signature": "getSlaveTable()",
+        "description": "Get master-slave mapping table",
+        "returns": "dict[masterID: list[slaveID]]",
+        "categories": ["rs485"]
+      },
+      {
+        "name": "setSlaveInfo",
+        "signature": "setSlaveInfo(slaveInfo)",
+        "description": "Set slave device info",
+        "returns": "bool",
+        "categories": ["rs485"]
+      },
+      {
+        "name": "setSlaveInfos",
+        "signature": "setSlaveInfos(slaveInfos)",
+        "description": "Set multiple slave device infos",
+        "returns": "bool",
+        "categories": ["rs485"]
+      },
+      {
+        "name": "setSlaves",
+        "signature": "setSlaves(masterID, rs485Slaves)",
+        "description": "Set slaves for a master",
+        "returns": "bool",
+        "categories": ["rs485"]
+      },
+      {
+        "name": "searchSlaves",
+        "signature": "searchSlaves(masterID)",
+        "description": "Search for slave devices",
+        "returns": "list[SlaveDeviceInfo]",
+        "categories": ["rs485"]
+      },
+      {
+        "name": "getMasterID",
+        "signature": "getMasterID(devID)",
+        "description": "Get master ID for a device",
+        "returns": "int or None",
+        "categories": ["rs485"]
+      },
+      {
+        "name": "getSlaveInfo",
+        "signature": "getSlaveInfo(slaveID, masterID=None)",
+        "description": "Get slave device info",
+        "returns": "SlaveDeviceInfo or None",
+        "categories": ["rs485"]
+      }
+    ]
+  },
+  "blacklist_operator": {
+    "description": "Blacklist and operator management",
+    "methods": [
+      {
+        "name": "getBlacklists",
+        "signature": "getBlacklists(deviceID)",
+        "description": "Get blacklisted cards",
+        "returns": "list[BlacklistItem]",
+        "categories": ["card"]
+      },
+      {
+        "name": "setBlacklist",
+        "signature": "setBlacklist(deviceID, blacklist)",
+        "description": "Add card to blacklist",
+        "returns": "bool",
+        "categories": ["card"]
+      },
+      {
+        "name": "removeBlacklists",
+        "signature": "removeBlacklists(deviceID, blacklists=[])",
+        "description": "Remove blacklisted cards",
+        "returns": "bool",
+        "categories": ["card"]
+      },
+      {
+        "name": "getOperators",
+        "signature": "getOperators(deviceID, userIDs=[])",
+        "description": "Get operators",
+        "returns": "list[Operator]",
+        "categories": ["operator"]
+      },
+      {
+        "name": "setOperator",
+        "signature": "setOperator(deviceID, operator)",
+        "description": "Set operator",
+        "returns": "bool",
+        "categories": ["operator"]
+      },
+      {
+        "name": "removeOperators",
+        "signature": "removeOperators(deviceID, userIDs=[])",
+        "description": "Remove operators",
+        "returns": "bool",
+        "categories": ["operator"]
+      }
+    ]
+  },
+  "tenant_gateway": {
+    "description": "Tenant and gateway management (master gateway only)",
+    "methods": [
+      {
+        "name": "getTenantIDs",
+        "signature": "getTenantIDs()",
+        "description": "Get tenant ID list",
+        "returns": "list[str]",
+        "categories": ["tenant"]
+      },
+      {
+        "name": "getTenants",
+        "signature": "getTenants(tenantIDs=[])",
+        "description": "Get tenant information",
+        "returns": "list[TenantInfo]",
+        "categories": ["tenant"]
+      },
+      {
+        "name": "addTenants",
+        "signature": "addTenants(tenantInfos)",
+        "description": "Add tenants",
+        "returns": "bool",
+        "categories": ["tenant"]
+      },
+      {
+        "name": "removeTenants",
+        "signature": "removeTenants(tenantIDs=[])",
+        "description": "Remove tenants",
+        "returns": "bool",
+        "categories": ["tenant"]
+      },
+      {
+        "name": "getGatewayIDs",
+        "signature": "getGatewayIDs() or getGatewayIDs(tenantID)",
+        "description": "Get gateway IDs (overloaded method)",
+        "returns": "list[str]",
+        "categories": ["gateway", "tenant"]
+      },
+      {
+        "name": "getGatewayInfo",
+        "signature": "getGatewayInfo(gatewayID)",
+        "description": "Get gateway information",
+        "returns": "GatewayInfo",
+        "categories": ["gateway"]
+      },
+      {
+        "name": "addGateways",
+        "signature": "addGateways(tenantID, gatewayIDs) or addGateways(gatewayIDs)",
+        "description": "Add gateways (overloaded method)",
+        "returns": "bool",
+        "categories": ["gateway", "tenant"]
+      },
+      {
+        "name": "deleteGateways",
+        "signature": "deleteGateways(tenantID, gatewayIDs) or deleteGateways(gatewayIDs)",
+        "description": "Delete gateways (overloaded method)",
+        "returns": "bool",
+        "categories": ["gateway", "tenant"]
+      }
+    ]
+  },
+  "utility": {
+    "description": "Utility and helper methods",
+    "methods": [
+      {
+        "name": "getTarget",
+        "signature": "getTarget()",
+        "description": "Get current target device ID",
+        "returns": "int or None",
+        "categories": []
+      },
+      {
+        "name": "setTarget",
+        "signature": "setTarget(deviceID)",
+        "description": "Set target device ID",
+        "returns": "None",
+        "categories": []
+      },
+      {
+        "name": "selectTarget",
+        "signature": "selectTarget(mask=NON_SLAVE, prompt='Select a Device')",
+        "description": "Interactively select target device",
+        "returns": "int",
+        "categories": []
+      }
+    ]
+  }
+}

@@ -1,0 +1,288 @@
+{
+  "description": "G-SDK Event Code Reference - Common event codes for test automation",
+  "full_event_code_file": "demo/demo/event_code.json",
+  "usage_note": "Use svcManager.getEventDescription(eventCode) to get event description dynamically",
+  "common_event_categories": {
+    "authentication_success": {
+      "base_code": 4096,
+      "hex": "0x1000",
+      "name": "BS2_EVENT_VERIFY_SUCCESS",
+      "description": "1:1 authentication success",
+      "sub_codes": {
+        "0": "General success",
+        "1": "ID + PIN",
+        "2": "ID + Finger",
+        "3": "ID + Finger + PIN",
+        "4": "ID + Face",
+        "5": "ID + Face + PIN",
+        "6": "Card",
+        "7": "Card + PIN",
+        "8": "Card + Finger",
+        "9": "Card + Finger + PIN",
+        "10": "Card + Face",
+        "11": "Card + Face + PIN",
+        "12": "AOC",
+        "13": "Finger",
+        "14": "Finger + PIN",
+        "15": "Face",
+        "16": "Face + PIN"
+      }
+    },
+    "authentication_fail": {
+      "base_code": 4352,
+      "hex": "0x1100",
+      "name": "BS2_EVENT_VERIFY_FAIL",
+      "description": "1:1 authentication fail",
+      "sub_codes": {
+        "0": "General fail",
+        "1": "ID + PIN",
+        "2": "ID + Finger",
+        "3": "ID + Finger + PIN",
+        "4": "ID + Face",
+        "5": "ID + Face + PIN",
+        "6": "Card",
+        "7": "Card + PIN",
+        "8": "Card + Finger",
+        "9": "Card + Finger + PIN",
+        "10": "Card + Face",
+        "11": "Card + Face + PIN"
+      }
+    },
+    "identify_success": {
+      "base_code": 4097,
+      "hex": "0x1001",
+      "name": "BS2_EVENT_IDENTIFY_SUCCESS",
+      "description": "1:N authentication success",
+      "sub_codes": {
+        "0": "General success",
+        "13": "Finger",
+        "14": "Finger + PIN",
+        "15": "Face",
+        "16": "Face + PIN"
+      }
+    },
+    "identify_fail": {
+      "base_code": 4353,
+      "hex": "0x1101",
+      "name": "BS2_EVENT_IDENTIFY_FAIL",
+      "description": "1:N authentication fail",
+      "sub_codes": {
+        "0": "General fail",
+        "13": "Finger",
+        "14": "Finger + PIN",
+        "15": "Face",
+        "16": "Face + PIN"
+      }
+    },
+    "door_opened": {
+      "base_code": 12288,
+      "hex": "0x3000",
+      "name": "BS2_EVENT_DOOR_OPENED",
+      "description": "Door opened",
+      "sub_codes": {}
+    },
+    "door_closed": {
+      "base_code": 12289,
+      "hex": "0x3001",
+      "name": "BS2_EVENT_DOOR_CLOSED",
+      "description": "Door closed",
+      "sub_codes": {}
+    },
+    "door_unlocked": {
+      "base_code": 12290,
+      "hex": "0x3002",
+      "name": "BS2_EVENT_DOOR_UNLOCKED",
+      "description": "Door unlocked",
+      "sub_codes": {}
+    },
+    "door_locked": {
+      "base_code": 12291,
+      "hex": "0x3003",
+      "name": "BS2_EVENT_DOOR_LOCKED",
+      "description": "Door locked",
+      "sub_codes": {}
+    },
+    "door_alarm": {
+      "base_code": 12544,
+      "hex": "0x3100",
+      "name": "BS2_EVENT_DOOR_ALARM",
+      "description": "Door alarm",
+      "sub_codes": {}
+    },
+    "access_granted": {
+      "base_code": 8192,
+      "hex": "0x2000",
+      "name": "BS2_EVENT_USER_ACCESS_GRANTED",
+      "description": "User access granted",
+      "sub_codes": {}
+    },
+    "access_denied": {
+      "base_code": 8448,
+      "hex": "0x2100",
+      "name": "BS2_EVENT_USER_ACCESS_DENIED",
+      "description": "User access denied",
+      "sub_codes": {
+        "0": "General denial",
+        "1": "Invalid user ID",
+        "2": "Disabled user",
+        "3": "Expired user",
+        "4": "Invalid access level",
+        "5": "APB violation",
+        "6": "Blacklist",
+        "7": "Antipassback violation",
+        "8": "No access group",
+        "9": "Time period violation"
+      }
+    },
+    "user_enrolled": {
+      "base_code": 16384,
+      "hex": "0x4000",
+      "name": "BS2_EVENT_USER_ENROLLED",
+      "description": "User enrolled",
+      "sub_codes": {}
+    },
+    "user_deleted": {
+      "base_code": 16385,
+      "hex": "0x4001",
+      "name": "BS2_EVENT_USER_DELETED",
+      "description": "User deleted",
+      "sub_codes": {}
+    },
+    "user_updated": {
+      "base_code": 16386,
+      "hex": "0x4002",
+      "name": "BS2_EVENT_USER_UPDATED",
+      "description": "User updated",
+      "sub_codes": {}
+    },
+    "device_connected": {
+      "base_code": 28672,
+      "hex": "0x7000",
+      "name": "BS2_EVENT_DEVICE_CONNECTED",
+      "description": "Device connected to gateway",
+      "sub_codes": {}
+    },
+    "device_disconnected": {
+      "base_code": 28673,
+      "hex": "0x7001",
+      "name": "BS2_EVENT_DEVICE_DISCONNECTED",
+      "description": "Device disconnected from gateway",
+      "sub_codes": {}
+    },
+    "zone_apb_violation": {
+      "base_code": 20480,
+      "hex": "0x5000",
+      "name": "BS2_EVENT_ZONE_APB_VIOLATION",
+      "description": "APB zone violation",
+      "sub_codes": {}
+    },
+    "zone_apb_clear": {
+      "base_code": 20481,
+      "hex": "0x5001",
+      "name": "BS2_EVENT_ZONE_APB_CLEAR",
+      "description": "APB zone violation cleared",
+      "sub_codes": {}
+    },
+    "tna_key": {
+      "base_code": 24576,
+      "hex": "0x6000",
+      "name": "BS2_EVENT_TNA_KEY",
+      "description": "T&A key pressed",
+      "sub_codes": {
+        "0": "Check-in",
+        "1": "Check-out",
+        "2": "Break-start",
+        "3": "Break-end"
+      }
+    }
+  },
+  "event_code_calculation": {
+    "formula": "full_event_code = base_code | sub_code",
+    "example": "VERIFY_SUCCESS with ID+PIN = 0x1000 | 0x01 = 0x1001 = 4097",
+    "python_example": "eventCode = event_pb2.BS2_EVENT_VERIFY_SUCCESS | event_pb2.BS2_SUB_EVENT_VERIFY_ID_PIN"
+  },
+  "commonly_monitored_events": [
+    {
+      "event": "BS2_EVENT_VERIFY_SUCCESS",
+      "code": 4096,
+      "use_case": "Monitor successful authentication",
+      "test_pattern": "User authentication tests"
+    },
+    {
+      "event": "BS2_EVENT_VERIFY_FAIL",
+      "code": 4352,
+      "use_case": "Monitor failed authentication",
+      "test_pattern": "Negative authentication tests"
+    },
+    {
+      "event": "BS2_EVENT_IDENTIFY_SUCCESS",
+      "code": 4097,
+      "use_case": "Monitor successful 1:N identification",
+      "test_pattern": "Fingerprint/face only tests"
+    },
+    {
+      "event": "BS2_EVENT_USER_ACCESS_GRANTED",
+      "code": 8192,
+      "use_case": "Monitor access control decisions",
+      "test_pattern": "Access level/group tests"
+    },
+    {
+      "event": "BS2_EVENT_USER_ACCESS_DENIED",
+      "code": 8448,
+      "use_case": "Monitor access denials",
+      "test_pattern": "Access control negative tests"
+    },
+    {
+      "event": "BS2_EVENT_DOOR_OPENED",
+      "code": 12288,
+      "use_case": "Monitor door state changes",
+      "test_pattern": "Door control tests"
+    },
+    {
+      "event": "BS2_EVENT_USER_ENROLLED",
+      "code": 16384,
+      "use_case": "Monitor user enrollment",
+      "test_pattern": "User management tests"
+    },
+    {
+      "event": "BS2_EVENT_ZONE_APB_VIOLATION",
+      "code": 20480,
+      "use_case": "Monitor APB violations",
+      "test_pattern": "APB zone tests"
+    },
+    {
+      "event": "BS2_EVENT_TNA_KEY",
+      "code": 24576,
+      "use_case": "Monitor T&A events",
+      "test_pattern": "Time and attendance tests"
+    }
+  ],
+  "eventmonitor_usage_pattern": {
+    "description": "How to use EventMonitor from util.py",
+    "import_statement": "from demo.test.util import EventMonitor",
+    "basic_usage": "with EventMonitor(svcManager, masterID, eventCode=0x1000) as monitor:\n    # Perform action that triggers event\n    svcManager.detectFingerprint(deviceID, fingerData)\n    # Wait for event\n    assert monitor.caught(timeout=3.0)",
+    "filter_by_user": "EventMonitor(svcManager, masterID, eventCode=0x1000, userID='user123')",
+    "filter_by_card": "EventMonitor(svcManager, masterID, eventCode=0x1000, cardID=12345)",
+    "filter_by_device": "EventMonitor(svcManager, masterID, eventCode=0x1000, deviceID=deviceID)",
+    "quiet_mode": "EventMonitor(svcManager, masterID, eventCode=0x1000, quiet=True)"
+  },
+  "pb2_event_constants": {
+    "description": "Event codes are defined in event_pb2.py",
+    "import_statement": "import event_pb2",
+    "examples": [
+      "event_pb2.BS2_EVENT_VERIFY_SUCCESS",
+      "event_pb2.BS2_EVENT_VERIFY_FAIL",
+      "event_pb2.BS2_SUB_EVENT_VERIFY_ID_PIN",
+      "event_pb2.BS2_SUB_EVENT_VERIFY_CARD_FINGER"
+    ],
+    "combining_codes": "full_code = event_pb2.BS2_EVENT_VERIFY_SUCCESS | event_pb2.BS2_SUB_EVENT_VERIFY_ID_PIN"
+  },
+  "test_workflow_integration": {
+    "step_1": "Import EventMonitor and event_pb2",
+    "step_2": "Start EventMonitor before triggering action",
+    "step_3": "Perform action (authentication, door operation, user enrollment, etc.)",
+    "step_4": "Use monitor.caught() to verify event occurred",
+    "step_5": "Access event details via monitor.description",
+    "example_assertion": "self.assertTrue(monitor.caught(timeout=3.0), 'Expected event did not occur')"
+  }
+}
